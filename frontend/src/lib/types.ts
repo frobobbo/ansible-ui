@@ -40,12 +40,20 @@ export interface FormField {
 	sort_order: number;
 }
 
+export interface Vault {
+	id: string;
+	name: string;
+	description: string;
+	created_at: string;
+}
+
 export interface Form {
 	id: string;
 	name: string;
 	description: string;
 	playbook_id: string;
 	server_id: string;
+	vault_id?: string | null;
 	fields?: FormField[];
 	created_at: string;
 	updated_at: string;

@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import { authStore } from './stores';
-import type { AuthResponse, Form, FormField, Playbook, Run, Server, User } from './types';
+import type { AuthResponse, Form, FormField, Playbook, Run, Server, User, Vault } from './types';
 
 export class ApiError extends Error {
 	constructor(public status: number, message: string) {
@@ -85,6 +85,16 @@ export const forms = {
 	update: (id: string, data: Partial<Form> & { fields?: Partial<FormField>[] }) =>
 		request<Form>(`/forms/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 	delete: (id: string) => request<void>(`/forms/${id}`, { method: 'DELETE' }),
+};
+
+export const vaults = {
+	list: () => request<Vault[]>('/vaults'),
+	get: (id: string) => request<Vault>(`/vaults/${id}`),
+	create: (data: { name: string; description: string; password: string }) =>
+		request<Vault>('/vaults', { method: 'POST', body: JSON.stringify(data) }),
+	update: (id: string, data: { name: string; description: string; password?: string }) =>
+		request<Vault>(`/vaults/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+	delete: (id: string) => request<void>(`/vaults/${id}`, { method: 'DELETE' }),
 };
 
 export const runs = {

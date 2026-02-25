@@ -1,18 +1,19 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { forms as formsApi, servers as serversApi, playbooks as playbooksApi, ApiError } from '$lib/api';
-	import type { Server, Playbook, FormField, FieldType } from '$lib/types';
+	import { forms as formsApi, servers as serversApi, playbooks as playbooksApi, vaults as vaultsApi, ApiError } from '$lib/api';
+	import type { Server, Playbook, Vault, FormField, FieldType } from '$lib/types';
 
 	let serverList = $state<Server[]>([]);
 	let playbookList = $state<Playbook[]>([]);
-	let formData = $state({ name: '', description: '', server_id: '', playbook_id: '' });
+	let vaultList = $state<Vault[]>([]);
+	let formData = $state({ name: '', description: '', server_id: '', playbook_id: '', vault_id: '' });
 	let fields = $state<Partial<FormField>[]>([]);
 	let saving = $state(false);
 	let error = $state('');
 
 	onMount(async () => {
-		[serverList, playbookList] = await Promise.all([serversApi.list(), playbooksApi.list()]);
+		[serverList, playbookList, vaultList] = await Promise.all([serversApi.list(), playbooksApi.list(), vaultsApi.list()]);
 	});
 
 	function addField() {
@@ -77,6 +78,14 @@
 					<option value="">Select playbook...</option>
 					{#each playbookList as pb}<option value={pb.id}>{pb.name}</option>{/each}
 				</select>
+			</div>
+			<div class="form-group">
+				<label>Vault (optional)</label>
+				<select class="form-control" bind:value={formData.vault_id}>
+					<option value="">None</option>
+					{#each vaultList as v}<option value={v.id}>{v.name}</option>{/each}
+				</select>
+				<small class="hint">Select a vault to pass --vault-password-file when running this form.</small>
 			</div>
 		</div>
 	</div>

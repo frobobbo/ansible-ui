@@ -25,12 +25,21 @@ CREATE TABLE IF NOT EXISTS playbooks (
     created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS vaults (
+    id           TEXT PRIMARY KEY,
+    name         TEXT NOT NULL,
+    description  TEXT NOT NULL DEFAULT '',
+    password_enc TEXT NOT NULL,
+    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS forms (
     id          TEXT PRIMARY KEY,
     name        TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     playbook_id TEXT NOT NULL REFERENCES playbooks(id) ON DELETE CASCADE,
     server_id   TEXT NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+    vault_id    TEXT REFERENCES vaults(id) ON DELETE SET NULL,
     created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

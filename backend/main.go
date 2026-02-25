@@ -36,7 +36,7 @@ func main() {
 	jwtSvc := auth.NewJWTService(jwtSecret)
 
 	// Router
-	router := api.NewRouter(db, jwtSvc, "./data/playbooks")
+	router := api.NewRouter(db, jwtSvc, "./data/playbooks", jwtSecret)
 
 	port := os.Getenv("PORT")
 	if port == "" {

@@ -19,10 +19,11 @@ type RunsHandler struct {
 	forms     *store.FormStore
 	servers   *store.ServerStore
 	playbooks *store.PlaybookStore
+	vaults    *store.VaultStore
 }
 
-func newRunsHandler(runs *store.RunStore, forms *store.FormStore, servers *store.ServerStore, playbooks *store.PlaybookStore) *RunsHandler {
-	return &RunsHandler{runs: runs, forms: forms, servers: servers, playbooks: playbooks}
+func newRunsHandler(runs *store.RunStore, forms *store.FormStore, servers *store.ServerStore, playbooks *store.PlaybookStore, vaults *store.VaultStore) *RunsHandler {
+	return &RunsHandler{runs: runs, forms: forms, servers: servers, playbooks: playbooks, vaults: vaults}
 }
 
 func (h *RunsHandler) List(c *gin.Context) {
@@ -116,8 +117,17 @@ func (h *RunsHandler) executeRun(runID string, form *models.Form, variables map[
 		h.runs.Finish(runID, "failed", fmt.Sprintf("upload playbook: %v", err))
 		return
 	}
-	// Always clean up remote file
 	defer client.RunCommand(fmt.Sprintf("rm -f '%s'", remotePath))
+
+	// Decrypt vault password if the form references one
+	var vaultPassword string
+	if form.VaultID != nil {
+		vaultPassword, err = h.vaults.GetDecryptedPassword(*form.VaultID)
+		if err != nil {
+			h.runs.Finish(runID, "failed", fmt.Sprintf("decrypt vault: %v", err))
+			return
+		}
+	}
 
 	// Stream output
 	outputCh := make(chan string, 256)
@@ -131,7 +141,7 @@ func (h *RunsHandler) executeRun(runID string, form *models.Form, variables map[
 		}
 	}()
 
-	result := client.RunPlaybook(ctx, remotePath, variables, server.PreCommand, outputCh)
+	result := client.RunPlaybook(ctx, remotePath, variables, server.PreCommand, vaultPassword, outputCh)
 	close(outputCh)
 	<-doneCh
 

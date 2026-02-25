@@ -41,12 +41,20 @@ type FormField struct {
 	SortOrder    int    `json:"sort_order" db:"sort_order"`
 }
 
+type Vault struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 type Form struct {
 	ID          string      `json:"id" db:"id"`
 	Name        string      `json:"name" db:"name"`
 	Description string      `json:"description" db:"description"`
 	PlaybookID  string      `json:"playbook_id" db:"playbook_id"`
 	ServerID    string      `json:"server_id" db:"server_id"`
+	VaultID     *string     `json:"vault_id" db:"vault_id"`
 	Fields      []FormField `json:"fields,omitempty" db:"-"`
 	CreatedAt   time.Time   `json:"created_at" db:"created_at"`
 	UpdatedAt   time.Time   `json:"updated_at" db:"updated_at"`

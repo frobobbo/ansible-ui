@@ -44,6 +44,7 @@ func New(dsn string) (*DB, error) {
 	// Migrations: ALTER TABLE is idempotent-ish — SQLite returns an error if the
 	// column already exists, which we intentionally ignore.
 	db.Exec("ALTER TABLE servers ADD COLUMN pre_command TEXT NOT NULL DEFAULT ''")
+	db.Exec("ALTER TABLE forms ADD COLUMN vault_id TEXT REFERENCES vaults(id) ON DELETE SET NULL")
 
 	return &DB{conn: db}, nil
 }
@@ -75,11 +76,14 @@ func (db *DB) EnsureDefaultAdmin() error {
 	return err
 }
 
-func (db *DB) Users() *UserStore     { return &UserStore{db: db.conn} }
-func (db *DB) Servers() *ServerStore { return &ServerStore{db: db.conn} }
+func (db *DB) Users() *UserStore         { return &UserStore{db: db.conn} }
+func (db *DB) Servers() *ServerStore     { return &ServerStore{db: db.conn} }
 func (db *DB) Playbooks() *PlaybookStore { return &PlaybookStore{db: db.conn} }
-func (db *DB) Forms() *FormStore     { return &FormStore{db: db.conn} }
-func (db *DB) Runs() *RunStore       { return &RunStore{db: db.conn} }
+func (db *DB) Forms() *FormStore         { return &FormStore{db: db.conn} }
+func (db *DB) Runs() *RunStore           { return &RunStore{db: db.conn} }
+func (db *DB) Vaults(secret string) *VaultStore {
+	return newVaultStore(db.conn, secret)
+}
 
 // scanUser scans a user row (without password_hash by default)
 func scanUser(row *sql.Row) (*models.User, error) {

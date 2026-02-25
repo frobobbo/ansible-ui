@@ -33,6 +33,7 @@
 			<a href="/forms" class="nav-link" class:active={$page.url.pathname.startsWith('/forms')}>Forms</a>
 			<a href="/runs" class="nav-link" class:active={$page.url.pathname.startsWith('/runs')}>Run History</a>
 			{#if $isAdmin}
+				<a href="/vaults" class="nav-link" class:active={$page.url.pathname.startsWith('/vaults')}>Vaults</a>
 				<a href="/users" class="nav-link" class:active={$page.url.pathname.startsWith('/users')}>Users</a>
 			{/if}
 			<div class="sidebar-footer">

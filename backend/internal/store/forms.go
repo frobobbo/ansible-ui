@@ -15,7 +15,7 @@ type FormStore struct {
 
 func (s *FormStore) List() ([]*models.Form, error) {
 	rows, err := s.db.Query(
-		"SELECT id, name, description, playbook_id, server_id, created_at, updated_at FROM forms ORDER BY name",
+		"SELECT id, name, description, playbook_id, server_id, vault_id, created_at, updated_at FROM forms ORDER BY name",
 	)
 	if err != nil {
 		return nil, err
@@ -25,7 +25,7 @@ func (s *FormStore) List() ([]*models.Form, error) {
 	var forms []*models.Form
 	for rows.Next() {
 		f := &models.Form{}
-		if err := rows.Scan(&f.ID, &f.Name, &f.Description, &f.PlaybookID, &f.ServerID, &f.CreatedAt, &f.UpdatedAt); err != nil {
+		if err := rows.Scan(&f.ID, &f.Name, &f.Description, &f.PlaybookID, &f.ServerID, &f.VaultID, &f.CreatedAt, &f.UpdatedAt); err != nil {
 			return nil, err
 		}
 		forms = append(forms, f)
@@ -36,8 +36,8 @@ func (s *FormStore) List() ([]*models.Form, error) {
 func (s *FormStore) Get(id string) (*models.Form, error) {
 	f := &models.Form{}
 	err := s.db.QueryRow(
-		"SELECT id, name, description, playbook_id, server_id, created_at, updated_at FROM forms WHERE id = ?", id,
-	).Scan(&f.ID, &f.Name, &f.Description, &f.PlaybookID, &f.ServerID, &f.CreatedAt, &f.UpdatedAt)
+		"SELECT id, name, description, playbook_id, server_id, vault_id, created_at, updated_at FROM forms WHERE id = ?", id,
+	).Scan(&f.ID, &f.Name, &f.Description, &f.PlaybookID, &f.ServerID, &f.VaultID, &f.CreatedAt, &f.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -76,7 +76,7 @@ func (s *FormStore) GetFields(formID string) ([]models.FormField, error) {
 	return fields, rows.Err()
 }
 
-func (s *FormStore) Create(name, description, playbookID, serverID string, fields []models.FormField) (*models.Form, error) {
+func (s *FormStore) Create(name, description, playbookID, serverID string, vaultID *string, fields []models.FormField) (*models.Form, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
@@ -90,13 +90,14 @@ func (s *FormStore) Create(name, description, playbookID, serverID string, field
 		Description: description,
 		PlaybookID:  playbookID,
 		ServerID:    serverID,
+		VaultID:     vaultID,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
 
 	_, err = tx.Exec(
-		"INSERT INTO forms (id, name, description, playbook_id, server_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-		f.ID, f.Name, f.Description, f.PlaybookID, f.ServerID, f.CreatedAt, f.UpdatedAt,
+		"INSERT INTO forms (id, name, description, playbook_id, server_id, vault_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+		f.ID, f.Name, f.Description, f.PlaybookID, f.ServerID, f.VaultID, f.CreatedAt, f.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -119,7 +120,7 @@ func (s *FormStore) Create(name, description, playbookID, serverID string, field
 	return f, tx.Commit()
 }
 
-func (s *FormStore) Update(id, name, description, playbookID, serverID string, fields []models.FormField) (*models.Form, error) {
+func (s *FormStore) Update(id, name, description, playbookID, serverID string, vaultID *string, fields []models.FormField) (*models.Form, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
@@ -127,8 +128,8 @@ func (s *FormStore) Update(id, name, description, playbookID, serverID string, f
 	defer tx.Rollback()
 
 	_, err = tx.Exec(
-		"UPDATE forms SET name=?, description=?, playbook_id=?, server_id=?, updated_at=? WHERE id=?",
-		name, description, playbookID, serverID, time.Now(), id,
+		"UPDATE forms SET name=?, description=?, playbook_id=?, server_id=?, vault_id=?, updated_at=? WHERE id=?",
+		name, description, playbookID, serverID, vaultID, time.Now(), id,
 	)
 	if err != nil {
 		return nil, err

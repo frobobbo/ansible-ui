@@ -22,9 +22,11 @@ type RunResult struct {
 // If preCommand is non-empty it is run before ansible-playbook in the same
 // shell so its environment changes (e.g. PATH from a virtualenv activate
 // script) are inherited. Example: ". /home/brett/ansible/bin/activate"
+// If vaultPassword is non-empty it is written to a temp file on the remote
+// and passed via --vault-password-file; the temp file is cleaned up after.
 // Lines of output are sent to outputCh as they arrive.
 // The caller must close outputCh after this returns.
-func (c *SSHClient) RunPlaybook(ctx context.Context, playbookPath string, variables map[string]interface{}, preCommand string, outputCh chan<- string) RunResult {
+func (c *SSHClient) RunPlaybook(ctx context.Context, playbookPath string, variables map[string]interface{}, preCommand string, vaultPassword string, outputCh chan<- string) RunResult {
 	varJSON, err := json.Marshal(variables)
 	if err != nil {
 		return RunResult{Err: fmt.Errorf("marshal vars: %w", err)}
@@ -33,6 +35,16 @@ func (c *SSHClient) RunPlaybook(ctx context.Context, playbookPath string, variab
 	// Single-quote the JSON for shell safety; escape any embedded single quotes
 	varStr := strings.ReplaceAll(string(varJSON), "'", `'"'"'`)
 	ansibleCmd := fmt.Sprintf("ansible-playbook '%s' --extra-vars '%s'", playbookPath, varStr)
+
+	// Upload vault password to a temp file on remote and add the flag
+	if vaultPassword != "" {
+		vaultPassPath := strings.TrimSuffix(playbookPath, ".yml") + "-vault-pass"
+		if err := c.UploadFile([]byte(vaultPassword), vaultPassPath); err != nil {
+			return RunResult{Err: fmt.Errorf("upload vault pass: %w", err)}
+		}
+		defer c.RunCommand(fmt.Sprintf("rm -f '%s'", vaultPassPath))
+		ansibleCmd += fmt.Sprintf(" --vault-password-file '%s'", vaultPassPath)
+	}
 
 	var cmd string
 	if preCommand != "" {

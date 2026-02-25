@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string) *gin.Engine {
+func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, jwtSecret string) *gin.Engine {
 	r := gin.Default()
 
 	// CORS middleware
@@ -27,12 +27,14 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string) *gin.Eng
 	})
 
 	// Handlers
+	vaultStore := db.Vaults(jwtSecret)
 	authH := newAuthHandler(db.Users(), jwtSvc)
 	usersH := newUsersHandler(db.Users())
 	serversH := newServersHandler(db.Servers())
 	playbooksH := newPlaybooksHandler(db.Playbooks(), uploadDir)
 	formsH := newFormsHandler(db.Forms())
-	runsH := newRunsHandler(db.Runs(), db.Forms(), db.Servers(), db.Playbooks())
+	vaultsH := newVaultsHandler(vaultStore)
+	runsH := newRunsHandler(db.Runs(), db.Forms(), db.Servers(), db.Playbooks(), vaultStore)
 
 	// API routes
 	api := r.Group("/api")
@@ -70,6 +72,13 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string) *gin.Eng
 			protected.POST("/forms", formsH.Create)
 			protected.PUT("/forms/:id", formsH.Update)
 			protected.DELETE("/forms/:id", formsH.Delete)
+
+			// Vaults (admin-only writes)
+			protected.GET("/vaults", vaultsH.List)
+			protected.GET("/vaults/:id", vaultsH.Get)
+			protected.POST("/vaults", auth.RequireAdmin, vaultsH.Create)
+			protected.PUT("/vaults/:id", auth.RequireAdmin, vaultsH.Update)
+			protected.DELETE("/vaults/:id", auth.RequireAdmin, vaultsH.Delete)
 
 			// Runs
 			protected.GET("/runs", runsH.List)
