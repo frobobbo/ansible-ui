@@ -12,13 +12,11 @@
 	// Create/edit modal
 	let showModal = $state(false);
 	let editingId = $state<string | null>(null);
+	let editingVaultFileName = $state('');
 	let form = $state({ name: '', description: '', password: '' });
 	let saving = $state(false);
 	let formError = $state('');
-
-	// File upload state per vault id
-	let uploading = $state<Record<string, boolean>>({});
-	let fileInputs = $state<Record<string, HTMLInputElement | null>>({});
+	let fileUploading = $state(false);
 
 	onMount(async () => {
 		if (!$isAdmin) { goto('/'); return; }
@@ -34,6 +32,7 @@
 
 	function openCreate() {
 		editingId = null;
+		editingVaultFileName = '';
 		form = { name: '', description: '', password: '' };
 		formError = '';
 		showModal = true;
@@ -41,6 +40,7 @@
 
 	function openEdit(v: Vault) {
 		editingId = v.id;
+		editingVaultFileName = v.vault_file_name;
 		form = { name: v.name, description: v.description, password: '' };
 		formError = '';
 		showModal = true;
@@ -73,14 +73,15 @@
 	async function handleFileUpload(id: string, input: HTMLInputElement) {
 		const file = input.files?.[0];
 		if (!file) return;
-		uploading[id] = true;
+		fileUploading = true;
 		try {
 			const updated = await vaultsApi.uploadFile(id, file);
+			editingVaultFileName = updated.vault_file_name;
 			list = list.map(v => v.id === id ? updated : v);
 		} catch (err) {
 			alert(err instanceof ApiError ? err.message : 'Upload failed');
 		} finally {
-			uploading[id] = false;
+			fileUploading = false;
 			input.value = '';
 		}
 	}
@@ -89,6 +90,7 @@
 		if (!confirm('Remove the vault file from this vault?')) return;
 		try {
 			const updated = await vaultsApi.deleteFile(id);
+			editingVaultFileName = '';
 			list = list.map(v => v.id === id ? updated : v);
 		} catch {
 			alert('Failed to remove file');
@@ -123,19 +125,8 @@
 						<td>
 							{#if v.vault_file_name}
 								<span class="file-badge">{v.vault_file_name}</span>
-								<button class="btn btn-sm btn-danger" style="margin-left:0.5rem" onclick={() => removeFile(v.id)}>✕</button>
 							{:else}
-								<label class="btn btn-sm btn-secondary file-label">
-									{uploading[v.id] ? 'Uploading…' : 'Upload File'}
-									<input
-										type="file"
-										accept=".yml,.yaml"
-										style="display:none"
-										bind:this={fileInputs[v.id]}
-										disabled={uploading[v.id]}
-										onchange={() => fileInputs[v.id] && handleFileUpload(v.id, fileInputs[v.id]!)}
-									/>
-								</label>
+								<span class="no-file">None</span>
 							{/if}
 						</td>
 						<td>{new Date(v.created_at).toLocaleDateString()}</td>
@@ -173,6 +164,30 @@
 						placeholder={editingId ? '••••••••' : 'Enter vault password'} />
 					<small class="hint">Stored encrypted (AES-256-GCM). Never exposed via the API.</small>
 				</div>
+				{#if editingId}
+					<div class="form-group">
+						<label>Vault YAML File (optional)</label>
+						{#if editingVaultFileName}
+							<div class="file-current">
+								<span class="file-badge">{editingVaultFileName}</span>
+								<button type="button" class="btn btn-sm btn-danger" style="margin-left:0.5rem"
+									onclick={() => removeFile(editingId!)}>Remove</button>
+							</div>
+						{:else}
+							<label class="btn btn-secondary file-label" class:disabled={fileUploading}>
+								{fileUploading ? 'Uploading…' : 'Choose File…'}
+								<input
+									type="file"
+									accept=".yml,.yaml"
+									style="display:none"
+									disabled={fileUploading}
+									onchange={(e) => handleFileUpload(editingId!, e.currentTarget as HTMLInputElement)}
+								/>
+							</label>
+						{/if}
+						<small class="hint">Passed as <code>--extra-vars "@file"</code> to ansible-playbook.</small>
+					</div>
+				{/if}
 				<div class="actions" style="justify-content:flex-end">
 					<button type="button" class="btn btn-secondary" onclick={() => showModal = false}>Cancel</button>
 					<button type="submit" class="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
@@ -186,7 +201,12 @@
 	.alert-info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; border-radius: var(--radius); padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.875rem; }
 	.alert-info code { background: #dbeafe; padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.85em; }
 	.file-badge { display: inline-flex; align-items: center; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; border-radius: 4px; padding: 0.15rem 0.5rem; font-size: 0.8rem; }
-	.file-label { cursor: pointer; }
+	.no-file { color: #94a3b8; font-size: 0.85rem; }
+	.file-current { display: flex; align-items: center; }
+	.file-label { cursor: pointer; display: inline-flex; align-items: center; }
+	.file-label.disabled { opacity: 0.6; cursor: not-allowed; }
+	.hint { display: block; margin-top: 0.25rem; font-size: 0.8rem; color: #64748b; }
+	.hint code { background: #f1f5f9; padding: 0.1em 0.3em; border-radius: 3px; }
 	.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
 	.modal { background: white; border-radius: var(--radius); padding: 2rem; width: 100%; max-width: 480px; }
 </style>

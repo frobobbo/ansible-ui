@@ -39,6 +39,7 @@
 			<div class="sidebar-footer">
 				<span class="user-info">{$currentUser?.username} ({$currentUser?.role})</span>
 				<button class="btn-logout" onclick={handleLogout}>Logout</button>
+				<span class="version-info">v{__APP_VERSION__}</span>
 			</div>
 		</nav>
 		<main class="content">
@@ -61,5 +62,6 @@
 	.user-info { font-size: 0.75rem; color: #64748b; }
 	.btn-logout { background: none; border: 1px solid #475569; color: var(--sidebar-text); padding: 0.375rem 0.75rem; border-radius: var(--radius); cursor: pointer; font-size: 0.8rem; }
 	.btn-logout:hover { background: #ef4444; border-color: #ef4444; color: white; }
+	.version-info { font-size: 0.7rem; color: #475569; text-align: center; }
 	.content { flex: 1; padding: 2rem; overflow-y: auto; min-height: 100vh; }
 </style>
