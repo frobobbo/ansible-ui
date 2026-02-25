@@ -17,6 +17,8 @@
 	let saving = $state(false);
 	let formError = $state('');
 	let fileUploading = $state(false);
+	// File staged for upload on create (uploaded immediately after vault is created)
+	let stagedFile = $state<File | null>(null);
 
 	onMount(async () => {
 		if (!$isAdmin) { goto('/'); return; }
@@ -33,6 +35,7 @@
 	function openCreate() {
 		editingId = null;
 		editingVaultFileName = '';
+		stagedFile = null;
 		form = { name: '', description: '', password: '' };
 		formError = '';
 		showModal = true;
@@ -53,7 +56,10 @@
 			if (editingId) {
 				await vaultsApi.update(editingId, form);
 			} else {
-				await vaultsApi.create(form);
+				const created = await vaultsApi.create(form);
+				if (stagedFile) {
+					await vaultsApi.uploadFile(created.id, stagedFile);
+				}
 			}
 			showModal = false;
 			await load();
@@ -164,9 +170,9 @@
 						placeholder={editingId ? '••••••••' : 'Enter vault password'} />
 					<small class="hint">Stored encrypted (AES-256-GCM). Never exposed via the API.</small>
 				</div>
-				{#if editingId}
 					<div class="form-group">
-						<label>Vault YAML File (optional)</label>
+					<label>Vault YAML File (optional)</label>
+					{#if editingId}
 						{#if editingVaultFileName}
 							<div class="file-current">
 								<span class="file-badge">{editingVaultFileName}</span>
@@ -185,9 +191,30 @@
 								/>
 							</label>
 						{/if}
-						<small class="hint">Passed as <code>--extra-vars "@file"</code> to ansible-playbook.</small>
-					</div>
-				{/if}
+					{:else}
+						{#if stagedFile}
+							<div class="file-current">
+								<span class="file-badge">{stagedFile.name}</span>
+								<button type="button" class="btn btn-sm btn-danger" style="margin-left:0.5rem"
+									onclick={() => stagedFile = null}>Remove</button>
+							</div>
+						{:else}
+							<label class="btn btn-secondary file-label">
+								Choose File…
+								<input
+									type="file"
+									accept=".yml,.yaml"
+									style="display:none"
+									onchange={(e) => {
+										const input = e.currentTarget as HTMLInputElement;
+										stagedFile = input.files?.[0] ?? null;
+									}}
+								/>
+							</label>
+						{/if}
+					{/if}
+					<small class="hint">Passed as <code>--extra-vars "@file"</code> to ansible-playbook.</small>
+				</div>
 				<div class="actions" style="justify-content:flex-end">
 					<button type="button" class="btn btn-secondary" onclick={() => showModal = false}>Cancel</button>
 					<button type="submit" class="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
