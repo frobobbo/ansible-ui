@@ -71,7 +71,7 @@ func (s *VaultStore) decrypt(encoded string) (string, error) {
 }
 
 func (s *VaultStore) List() ([]*models.Vault, error) {
-	rows, err := s.db.Query("SELECT id, name, description, created_at FROM vaults ORDER BY name")
+	rows, err := s.db.Query("SELECT id, name, description, vault_file_name, created_at FROM vaults ORDER BY name")
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (s *VaultStore) List() ([]*models.Vault, error) {
 	var vaults []*models.Vault
 	for rows.Next() {
 		v := &models.Vault{}
-		if err := rows.Scan(&v.ID, &v.Name, &v.Description, &v.CreatedAt); err != nil {
+		if err := rows.Scan(&v.ID, &v.Name, &v.Description, &v.VaultFileName, &v.CreatedAt); err != nil {
 			return nil, err
 		}
 		vaults = append(vaults, v)
@@ -91,8 +91,8 @@ func (s *VaultStore) List() ([]*models.Vault, error) {
 func (s *VaultStore) Get(id string) (*models.Vault, error) {
 	v := &models.Vault{}
 	err := s.db.QueryRow(
-		"SELECT id, name, description, created_at FROM vaults WHERE id = ?", id,
-	).Scan(&v.ID, &v.Name, &v.Description, &v.CreatedAt)
+		"SELECT id, name, description, vault_file_name, created_at FROM vaults WHERE id = ?", id,
+	).Scan(&v.ID, &v.Name, &v.Description, &v.VaultFileName, &v.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -112,6 +112,16 @@ func (s *VaultStore) GetDecryptedPassword(id string) (string, error) {
 	return s.decrypt(enc)
 }
 
+// GetVaultFilePath returns the local file path of the vault file (empty if none uploaded).
+func (s *VaultStore) GetVaultFilePath(id string) (string, error) {
+	var filePath string
+	err := s.db.QueryRow("SELECT vault_file_path FROM vaults WHERE id = ?", id).Scan(&filePath)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("vault not found")
+	}
+	return filePath, err
+}
+
 func (s *VaultStore) Create(name, description, password string) (*models.Vault, error) {
 	enc, err := s.encrypt(password)
 	if err != nil {
@@ -124,7 +134,7 @@ func (s *VaultStore) Create(name, description, password string) (*models.Vault, 
 		CreatedAt:   time.Now(),
 	}
 	_, err = s.db.Exec(
-		"INSERT INTO vaults (id, name, description, password_enc, created_at) VALUES (?, ?, ?, ?, ?)",
+		"INSERT INTO vaults (id, name, description, password_enc, vault_file_path, vault_file_name, created_at) VALUES (?, ?, ?, ?, '', '', ?)",
 		v.ID, v.Name, v.Description, enc, v.CreatedAt,
 	)
 	return v, err
@@ -153,6 +163,26 @@ func (s *VaultStore) Update(id, name, description, password string) (*models.Vau
 		}
 	}
 	return s.Get(id)
+}
+
+// SetVaultFile stores the local file path and original filename for a vault.
+func (s *VaultStore) SetVaultFile(id, filePath, fileName string) error {
+	_, err := s.db.Exec(
+		"UPDATE vaults SET vault_file_path=?, vault_file_name=? WHERE id=?",
+		filePath, fileName, id,
+	)
+	return err
+}
+
+// ClearVaultFile removes the file reference and returns the old local path for deletion.
+func (s *VaultStore) ClearVaultFile(id string) (string, error) {
+	var oldPath string
+	err := s.db.QueryRow("SELECT vault_file_path FROM vaults WHERE id = ?", id).Scan(&oldPath)
+	if err != nil {
+		return "", err
+	}
+	_, err = s.db.Exec("UPDATE vaults SET vault_file_path='', vault_file_name='' WHERE id=?", id)
+	return oldPath, err
 }
 
 func (s *VaultStore) Delete(id string) error {

@@ -42,10 +42,11 @@ type FormField struct {
 }
 
 type Vault struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	Description  string    `json:"description"`
+	VaultFileName string   `json:"vault_file_name"` // original filename; empty if no file uploaded
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 type Form struct {

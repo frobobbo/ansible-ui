@@ -21,12 +21,14 @@ type RunResult struct {
 // RunPlaybook executes ansible-playbook on the remote server.
 // If preCommand is non-empty it is run before ansible-playbook in the same
 // shell so its environment changes (e.g. PATH from a virtualenv activate
-// script) are inherited. Example: ". /home/brett/ansible/bin/activate"
-// If vaultPassword is non-empty it is written to a temp file on the remote
-// and passed via --vault-password-file; the temp file is cleaned up after.
+// script) are inherited.
+// If vaultPassword is non-empty it is written to a temp file and passed via
+// --vault-password-file; the temp file is cleaned up after the run.
+// If vaultFileContent is non-nil it is uploaded to a temp file on the remote
+// and passed via --extra-vars "@path" so ansible decrypts it automatically.
 // Lines of output are sent to outputCh as they arrive.
 // The caller must close outputCh after this returns.
-func (c *SSHClient) RunPlaybook(ctx context.Context, playbookPath string, variables map[string]interface{}, preCommand string, vaultPassword string, outputCh chan<- string) RunResult {
+func (c *SSHClient) RunPlaybook(ctx context.Context, playbookPath string, variables map[string]interface{}, preCommand string, vaultPassword string, vaultFileContent []byte, outputCh chan<- string) RunResult {
 	varJSON, err := json.Marshal(variables)
 	if err != nil {
 		return RunResult{Err: fmt.Errorf("marshal vars: %w", err)}
@@ -44,6 +46,16 @@ func (c *SSHClient) RunPlaybook(ctx context.Context, playbookPath string, variab
 		}
 		defer c.RunCommand(fmt.Sprintf("rm -f '%s'", vaultPassPath))
 		ansibleCmd += fmt.Sprintf(" --vault-password-file '%s'", vaultPassPath)
+	}
+
+	// Upload vault vars file to remote and pass as extra-vars
+	if len(vaultFileContent) > 0 {
+		vaultVarsPath := strings.TrimSuffix(playbookPath, ".yml") + "-vault-vars.yml"
+		if err := c.UploadFile(vaultFileContent, vaultVarsPath); err != nil {
+			return RunResult{Err: fmt.Errorf("upload vault vars: %w", err)}
+		}
+		defer c.RunCommand(fmt.Sprintf("rm -f '%s'", vaultVarsPath))
+		ansibleCmd += fmt.Sprintf(" --extra-vars '@%s'", vaultVarsPath)
 	}
 
 	var cmd string

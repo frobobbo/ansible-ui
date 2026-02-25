@@ -95,6 +95,12 @@ export const vaults = {
 	update: (id: string, data: { name: string; description: string; password?: string }) =>
 		request<Vault>(`/vaults/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 	delete: (id: string) => request<void>(`/vaults/${id}`, { method: 'DELETE' }),
+	uploadFile: (id: string, file: File) => {
+		const fd = new FormData();
+		fd.append('file', file);
+		return request<Vault>(`/vaults/${id}/upload`, { method: 'POST', body: fd });
+	},
+	deleteFile: (id: string) => request<Vault>(`/vaults/${id}/file`, { method: 'DELETE' }),
 };
 
 export const runs = {

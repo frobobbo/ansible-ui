@@ -44,6 +44,7 @@ export interface Vault {
 	id: string;
 	name: string;
 	description: string;
+	vault_file_name: string; // empty string if no file uploaded
 	created_at: string;
 }
 

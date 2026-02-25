@@ -11,8 +11,10 @@ import (
 
 func main() {
 	// Ensure data directories exist
-	if err := os.MkdirAll("./data/playbooks", 0750); err != nil {
-		log.Fatal("create data dir:", err)
+	for _, dir := range []string{"./data/playbooks", "./data/vaults"} {
+		if err := os.MkdirAll(dir, 0750); err != nil {
+			log.Fatal("create data dir:", err)
+		}
 	}
 
 	// Database
@@ -36,7 +38,7 @@ func main() {
 	jwtSvc := auth.NewJWTService(jwtSecret)
 
 	// Router
-	router := api.NewRouter(db, jwtSvc, "./data/playbooks", jwtSecret)
+	router := api.NewRouter(db, jwtSvc, "./data/playbooks", "./data/vaults", jwtSecret)
 
 	port := os.Getenv("PORT")
 	if port == "" {

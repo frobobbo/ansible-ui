@@ -45,6 +45,8 @@ func New(dsn string) (*DB, error) {
 	// column already exists, which we intentionally ignore.
 	db.Exec("ALTER TABLE servers ADD COLUMN pre_command TEXT NOT NULL DEFAULT ''")
 	db.Exec("ALTER TABLE forms ADD COLUMN vault_id TEXT REFERENCES vaults(id) ON DELETE SET NULL")
+	db.Exec("ALTER TABLE vaults ADD COLUMN vault_file_path TEXT NOT NULL DEFAULT ''")
+	db.Exec("ALTER TABLE vaults ADD COLUMN vault_file_name TEXT NOT NULL DEFAULT ''")
 
 	return &DB{conn: db}, nil
 }

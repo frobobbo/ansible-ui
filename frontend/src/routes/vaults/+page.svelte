@@ -9,12 +9,16 @@
 	let loading = $state(true);
 	let error = $state('');
 
-	// Modal state
+	// Create/edit modal
 	let showModal = $state(false);
 	let editingId = $state<string | null>(null);
 	let form = $state({ name: '', description: '', password: '' });
 	let saving = $state(false);
 	let formError = $state('');
+
+	// File upload state per vault id
+	let uploading = $state<Record<string, boolean>>({});
+	let fileInputs = $state<Record<string, HTMLInputElement | null>>({});
 
 	onMount(async () => {
 		if (!$isAdmin) { goto('/'); return; }
@@ -65,6 +69,31 @@
 		try { await vaultsApi.delete(id); await load(); }
 		catch { alert('Delete failed'); }
 	}
+
+	async function handleFileUpload(id: string, input: HTMLInputElement) {
+		const file = input.files?.[0];
+		if (!file) return;
+		uploading[id] = true;
+		try {
+			const updated = await vaultsApi.uploadFile(id, file);
+			list = list.map(v => v.id === id ? updated : v);
+		} catch (err) {
+			alert(err instanceof ApiError ? err.message : 'Upload failed');
+		} finally {
+			uploading[id] = false;
+			input.value = '';
+		}
+	}
+
+	async function removeFile(id: string) {
+		if (!confirm('Remove the vault file from this vault?')) return;
+		try {
+			const updated = await vaultsApi.deleteFile(id);
+			list = list.map(v => v.id === id ? updated : v);
+		} catch {
+			alert('Failed to remove file');
+		}
+	}
 </script>
 
 <div class="page-header">
@@ -72,8 +101,8 @@
 	<button class="btn btn-primary" onclick={openCreate}>+ Add Vault</button>
 </div>
 
-<div class="alert alert-info">
-	Vault passwords are encrypted at rest (AES-256-GCM). Passwords are never returned by the API — only used at run time to pass <code>--vault-password-file</code> to ansible-playbook.
+<div class="alert-info">
+	Vault passwords are encrypted at rest (AES-256-GCM). Passwords are never returned by the API — only used at run time to pass <code>--vault-password-file</code> to ansible-playbook. If you upload a vault YAML file, it will be passed as <code>--extra-vars "@file"</code> so its variables are decrypted automatically.
 </div>
 
 {#if error}<div class="alert alert-error">{error}</div>{/if}
@@ -85,12 +114,30 @@
 {:else}
 	<div class="card" style="padding:0">
 		<table class="table">
-			<thead><tr><th>Name</th><th>Description</th><th>Created</th><th>Actions</th></tr></thead>
+			<thead><tr><th>Name</th><th>Description</th><th>Vault File</th><th>Created</th><th>Actions</th></tr></thead>
 			<tbody>
 				{#each list as v}
 					<tr>
 						<td><strong>{v.name}</strong></td>
 						<td>{v.description || '—'}</td>
+						<td>
+							{#if v.vault_file_name}
+								<span class="file-badge">{v.vault_file_name}</span>
+								<button class="btn btn-sm btn-danger" style="margin-left:0.5rem" onclick={() => removeFile(v.id)}>✕</button>
+							{:else}
+								<label class="btn btn-sm btn-secondary file-label">
+									{uploading[v.id] ? 'Uploading…' : 'Upload File'}
+									<input
+										type="file"
+										accept=".yml,.yaml"
+										style="display:none"
+										bind:this={fileInputs[v.id]}
+										disabled={uploading[v.id]}
+										onchange={() => fileInputs[v.id] && handleFileUpload(v.id, fileInputs[v.id]!)}
+									/>
+								</label>
+							{/if}
+						</td>
 						<td>{new Date(v.created_at).toLocaleDateString()}</td>
 						<td>
 							<div class="actions">
@@ -138,6 +185,8 @@
 <style>
 	.alert-info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; border-radius: var(--radius); padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.875rem; }
 	.alert-info code { background: #dbeafe; padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.85em; }
+	.file-badge { display: inline-flex; align-items: center; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; border-radius: 4px; padding: 0.15rem 0.5rem; font-size: 0.8rem; }
+	.file-label { cursor: pointer; }
 	.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
 	.modal { background: white; border-radius: var(--radius); padding: 2rem; width: 100%; max-width: 480px; }
 </style>

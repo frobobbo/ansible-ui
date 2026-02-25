@@ -26,11 +26,13 @@ CREATE TABLE IF NOT EXISTS playbooks (
 );
 
 CREATE TABLE IF NOT EXISTS vaults (
-    id           TEXT PRIMARY KEY,
-    name         TEXT NOT NULL,
-    description  TEXT NOT NULL DEFAULT '',
-    password_enc TEXT NOT NULL,
-    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    description     TEXT NOT NULL DEFAULT '',
+    password_enc    TEXT NOT NULL,
+    vault_file_path TEXT NOT NULL DEFAULT '',
+    vault_file_name TEXT NOT NULL DEFAULT '',
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS forms (

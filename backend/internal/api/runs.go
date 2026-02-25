@@ -119,13 +119,27 @@ func (h *RunsHandler) executeRun(runID string, form *models.Form, variables map[
 	}
 	defer client.RunCommand(fmt.Sprintf("rm -f '%s'", remotePath))
 
-	// Decrypt vault password if the form references one
+	// Decrypt vault password + read vault file if the form references a vault
 	var vaultPassword string
+	var vaultFileContent []byte
 	if form.VaultID != nil {
 		vaultPassword, err = h.vaults.GetDecryptedPassword(*form.VaultID)
 		if err != nil {
 			h.runs.Finish(runID, "failed", fmt.Sprintf("decrypt vault: %v", err))
 			return
+		}
+
+		filePath, err := h.vaults.GetVaultFilePath(*form.VaultID)
+		if err != nil {
+			h.runs.Finish(runID, "failed", fmt.Sprintf("get vault file path: %v", err))
+			return
+		}
+		if filePath != "" {
+			vaultFileContent, err = os.ReadFile(filePath)
+			if err != nil {
+				h.runs.Finish(runID, "failed", fmt.Sprintf("read vault file: %v", err))
+				return
+			}
 		}
 	}
 
@@ -141,7 +155,7 @@ func (h *RunsHandler) executeRun(runID string, form *models.Form, variables map[
 		}
 	}()
 
-	result := client.RunPlaybook(ctx, remotePath, variables, server.PreCommand, vaultPassword, outputCh)
+	result := client.RunPlaybook(ctx, remotePath, variables, server.PreCommand, vaultPassword, vaultFileContent, outputCh)
 	close(outputCh)
 	<-doneCh
 

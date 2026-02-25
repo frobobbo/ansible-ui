@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, jwtSecret string) *gin.Engine {
+func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUploadDir string, jwtSecret string) *gin.Engine {
 	r := gin.Default()
 
 	// CORS middleware
@@ -33,7 +33,7 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, jwtSecre
 	serversH := newServersHandler(db.Servers())
 	playbooksH := newPlaybooksHandler(db.Playbooks(), uploadDir)
 	formsH := newFormsHandler(db.Forms())
-	vaultsH := newVaultsHandler(vaultStore)
+	vaultsH := newVaultsHandler(vaultStore, vaultUploadDir)
 	runsH := newRunsHandler(db.Runs(), db.Forms(), db.Servers(), db.Playbooks(), vaultStore)
 
 	// API routes
@@ -79,6 +79,8 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, jwtSecre
 			protected.POST("/vaults", auth.RequireAdmin, vaultsH.Create)
 			protected.PUT("/vaults/:id", auth.RequireAdmin, vaultsH.Update)
 			protected.DELETE("/vaults/:id", auth.RequireAdmin, vaultsH.Delete)
+			protected.POST("/vaults/:id/upload", auth.RequireAdmin, vaultsH.UploadFile)
+			protected.DELETE("/vaults/:id/file", auth.RequireAdmin, vaultsH.DeleteFile)
 
 			// Runs
 			protected.GET("/runs", runsH.List)
