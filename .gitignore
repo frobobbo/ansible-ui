@@ -1,0 +1,28 @@
+# Build artifacts
+ansible-frontend
+frontend/dist/
+frontend/.svelte-kit/
+frontend/node_modules/
+
+# Data directory (contains DB, uploaded playbooks, SSH keys)
+data/
+
+# Go build cache
+backend/vendor/
+
+# Environment / secrets
+.env
+*.env
+
+# Claude Code / IDE
+.claude/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
