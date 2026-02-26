@@ -2,11 +2,23 @@
 	import { onMount } from 'svelte';
 	import { playbooks as playbooksApi, ApiError } from '$lib/api';
 	import { isAdmin } from '$lib/stores';
+	import { toast, confirmDialog } from '$lib/toast';
 	import type { Playbook } from '$lib/types';
 
 	let list = $state<Playbook[]>([]);
 	let loading = $state(true);
 	let error = $state('');
+	let filter = $state('');
+
+	let filtered = $derived(
+		filter.trim()
+			? list.filter(
+					(p) =>
+						p.name.toLowerCase().includes(filter.toLowerCase()) ||
+						(p.description ?? '').toLowerCase().includes(filter.toLowerCase())
+				)
+			: list
+	);
 
 	let showUpload = $state(false);
 	let uploadForm = $state({ name: '', description: '', file: null as File | null });
@@ -30,6 +42,7 @@
 			await playbooksApi.upload(uploadForm.name, uploadForm.description, uploadForm.file);
 			showUpload = false;
 			uploadForm = { name: '', description: '', file: null };
+			toast.success('Playbook uploaded');
 			await load();
 		} catch (err) {
 			uploadError = err instanceof ApiError ? err.message : 'Upload failed';
@@ -39,9 +52,14 @@
 	}
 
 	async function remove(id: string) {
-		if (!confirm('Delete this playbook? Forms using it will be affected.')) return;
-		try { await playbooksApi.delete(id); await load(); }
-		catch { alert('Delete failed'); }
+		if (!(await confirmDialog('Delete this playbook? Forms using it will be affected.'))) return;
+		try {
+			await playbooksApi.delete(id);
+			await load();
+			toast.success('Playbook deleted');
+		} catch {
+			toast.error('Delete failed');
+		}
 	}
 
 	function onFileChange(e: Event) {
@@ -55,9 +73,12 @@
 
 <div class="page-header">
 	<h1>Playbooks</h1>
-	{#if $isAdmin}
-		<button class="btn btn-primary" onclick={() => showUpload = true}>+ Upload Playbook</button>
-	{/if}
+	<div class="header-right">
+		<input class="form-control search" placeholder="Search playbooks..." bind:value={filter} />
+		{#if $isAdmin}
+			<button class="btn btn-primary" onclick={() => showUpload = true}>+ Upload Playbook</button>
+		{/if}
+	</div>
 </div>
 
 {#if error}<div class="alert alert-error">{error}</div>{/if}
@@ -66,12 +87,14 @@
 	<p class="empty-state">Loading...</p>
 {:else if list.length === 0}
 	<div class="empty-state">No playbooks uploaded yet.{#if $isAdmin} Upload a YAML playbook to get started.{/if}</div>
+{:else if filtered.length === 0}
+	<div class="empty-state">No playbooks match "{filter}".</div>
 {:else}
 	<div class="card" style="padding:0">
 		<table class="table">
 			<thead><tr><th>Name</th><th>Description</th><th>Uploaded</th>{#if $isAdmin}<th>Actions</th>{/if}</tr></thead>
 			<tbody>
-				{#each list as pb}
+				{#each filtered as pb}
 					<tr>
 						<td><strong>{pb.name}</strong></td>
 						<td>{pb.description || '—'}</td>
@@ -114,6 +137,8 @@
 {/if}
 
 <style>
+	.header-right { display: flex; gap: 0.75rem; align-items: center; }
+	.search { width: 220px; }
 	.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
 	.modal { background: white; border-radius: var(--radius); padding: 2rem; width: 100%; max-width: 480px; }
 </style>

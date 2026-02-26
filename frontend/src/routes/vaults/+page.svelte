@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { vaults as vaultsApi, ApiError } from '$lib/api';
 	import { isAdmin } from '$lib/stores';
+	import { toast, confirmDialog } from '$lib/toast';
 	import { goto } from '$app/navigation';
 	import type { Vault } from '$lib/types';
 
@@ -17,7 +18,6 @@
 	let saving = $state(false);
 	let formError = $state('');
 	let fileUploading = $state(false);
-	// File staged for upload on create (uploaded immediately after vault is created)
 	let stagedFile = $state<File | null>(null);
 
 	onMount(async () => {
@@ -55,11 +55,13 @@
 		try {
 			if (editingId) {
 				await vaultsApi.update(editingId, form);
+				toast.success('Vault updated');
 			} else {
 				const created = await vaultsApi.create(form);
 				if (stagedFile) {
 					await vaultsApi.uploadFile(created.id, stagedFile);
 				}
+				toast.success('Vault created');
 			}
 			showModal = false;
 			await load();
@@ -71,9 +73,14 @@
 	}
 
 	async function remove(id: string) {
-		if (!confirm('Delete this vault? Any forms using it will lose their vault reference.')) return;
-		try { await vaultsApi.delete(id); await load(); }
-		catch { alert('Delete failed'); }
+		if (!(await confirmDialog('Delete this vault? Any forms using it will lose their vault reference.'))) return;
+		try {
+			await vaultsApi.delete(id);
+			await load();
+			toast.success('Vault deleted');
+		} catch {
+			toast.error('Delete failed');
+		}
 	}
 
 	async function handleFileUpload(id: string, input: HTMLInputElement) {
@@ -83,9 +90,10 @@
 		try {
 			const updated = await vaultsApi.uploadFile(id, file);
 			editingVaultFileName = updated.vault_file_name;
-			list = list.map(v => v.id === id ? updated : v);
+			list = list.map((v) => (v.id === id ? updated : v));
+			toast.success('File uploaded');
 		} catch (err) {
-			alert(err instanceof ApiError ? err.message : 'Upload failed');
+			toast.error(err instanceof ApiError ? err.message : 'Upload failed');
 		} finally {
 			fileUploading = false;
 			input.value = '';
@@ -93,13 +101,14 @@
 	}
 
 	async function removeFile(id: string) {
-		if (!confirm('Remove the vault file from this vault?')) return;
+		if (!(await confirmDialog('Remove the vault file from this vault?', { confirmText: 'Remove' }))) return;
 		try {
 			const updated = await vaultsApi.deleteFile(id);
 			editingVaultFileName = '';
-			list = list.map(v => v.id === id ? updated : v);
+			list = list.map((v) => (v.id === id ? updated : v));
+			toast.success('File removed');
 		} catch {
-			alert('Failed to remove file');
+			toast.error('Failed to remove file');
 		}
 	}
 </script>
@@ -170,7 +179,7 @@
 						placeholder={editingId ? '••••••••' : 'Enter vault password'} />
 					<small class="hint">Stored encrypted (AES-256-GCM). Never exposed via the API.</small>
 				</div>
-					<div class="form-group">
+				<div class="form-group">
 					<label>Vault YAML File (optional)</label>
 					{#if editingId}
 						{#if editingVaultFileName}

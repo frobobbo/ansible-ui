@@ -4,6 +4,8 @@
 	import { goto } from '$app/navigation';
 	import { authStore, isAuthenticated, currentUser, isAdmin, isEditor } from '$lib/stores';
 	import { auth } from '$lib/api';
+	import Toast from '$lib/components/Toast.svelte';
+	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 
 	let { children } = $props();
 
@@ -20,6 +22,9 @@
 		goto('/login');
 	}
 </script>
+
+<Toast />
+<ConfirmDialog />
 
 {#if $page.url.pathname === '/login'}
 	{@render children()}

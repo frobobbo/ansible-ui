@@ -36,6 +36,37 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 	return res.json();
 }
 
+// Like request<T> but also returns the X-Total-Count response header.
+async function requestPaged<T>(path: string, options: RequestInit = {}): Promise<{ data: T; total: number }> {
+	const { token } = get(authStore);
+	const headers: Record<string, string> = {};
+
+	if (!(options.body instanceof FormData)) {
+		headers['Content-Type'] = 'application/json';
+	}
+	if (token) {
+		headers['Authorization'] = `Bearer ${token}`;
+	}
+	if (options.headers) {
+		Object.assign(headers, options.headers);
+	}
+
+	const res = await fetch(`/api${path}`, { ...options, headers });
+
+	if (res.status === 401) {
+		authStore.logout();
+		throw new ApiError(401, 'Session expired');
+	}
+	if (!res.ok) {
+		const body = await res.json().catch(() => ({ error: 'Request failed' }));
+		throw new ApiError(res.status, body.error || 'Request failed');
+	}
+
+	const total = parseInt(res.headers.get('X-Total-Count') ?? '0', 10);
+	const data = (await res.json()) as T;
+	return { data, total };
+}
+
 export const auth = {
 	login: (username: string, password: string) =>
 		request<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
@@ -111,7 +142,20 @@ export const vaults = {
 };
 
 export const runs = {
-	list: () => request<Run[]>('/runs'),
+	/** Returns a page of runs plus the total count across all pages. */
+	list: (params?: { limit?: number; offset?: number }) => {
+		const qs = params
+			? '?' +
+				new URLSearchParams(
+					Object.fromEntries(
+						Object.entries(params)
+							.filter(([, v]) => v !== undefined)
+							.map(([k, v]) => [k, String(v)])
+					)
+				).toString()
+			: '';
+		return requestPaged<Run[]>(`/runs${qs}`);
+	},
 	get: (id: string) => request<Run>(`/runs/${id}`),
 	create: (formId: string, variables: Record<string, unknown>) =>
 		request<{ run_id: string; status: string }>('/runs', {

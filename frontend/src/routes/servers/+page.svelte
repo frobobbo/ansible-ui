@@ -2,13 +2,26 @@
 	import { onMount } from 'svelte';
 	import { servers as serversApi, ApiError } from '$lib/api';
 	import { isAdmin } from '$lib/stores';
+	import { toast, confirmDialog } from '$lib/toast';
 	import type { Server } from '$lib/types';
 
 	let list = $state<Server[]>([]);
 	let loading = $state(true);
 	let error = $state('');
+	let filter = $state('');
 	let testResults = $state<Record<string, { success: boolean; message: string }>>({});
 	let testing = $state<Record<string, boolean>>({});
+
+	let filtered = $derived(
+		filter.trim()
+			? list.filter(
+					(s) =>
+						s.name.toLowerCase().includes(filter.toLowerCase()) ||
+						s.host.toLowerCase().includes(filter.toLowerCase()) ||
+						s.username.toLowerCase().includes(filter.toLowerCase())
+				)
+			: list
+	);
 
 	// Modal state
 	let showModal = $state(false);
@@ -17,9 +30,7 @@
 	let saving = $state(false);
 	let formError = $state('');
 
-	onMount(async () => {
-		await load();
-	});
+	onMount(async () => { await load(); });
 
 	async function load() {
 		loading = true;
@@ -52,6 +63,7 @@
 				await serversApi.create(form);
 			}
 			showModal = false;
+			toast.success(editingId ? 'Server updated' : 'Server added');
 			await load();
 		} catch (err) {
 			formError = err instanceof ApiError ? err.message : 'Save failed';
@@ -61,9 +73,14 @@
 	}
 
 	async function remove(id: string) {
-		if (!confirm('Delete this server?')) return;
-		try { await serversApi.delete(id); await load(); }
-		catch { alert('Delete failed'); }
+		if (!(await confirmDialog('Delete this server?'))) return;
+		try {
+			await serversApi.delete(id);
+			await load();
+			toast.success('Server deleted');
+		} catch {
+			toast.error('Delete failed');
+		}
 	}
 
 	async function testConnection(id: string) {
@@ -81,9 +98,12 @@
 
 <div class="page-header">
 	<h1>Servers</h1>
-	{#if $isAdmin}
-		<button class="btn btn-primary" onclick={openCreate}>+ Add Server</button>
-	{/if}
+	<div class="header-right">
+		<input class="form-control search" placeholder="Search servers..." bind:value={filter} />
+		{#if $isAdmin}
+			<button class="btn btn-primary" onclick={openCreate}>+ Add Server</button>
+		{/if}
+	</div>
 </div>
 
 {#if error}<div class="alert alert-error">{error}</div>{/if}
@@ -92,12 +112,14 @@
 	<p class="empty-state">Loading...</p>
 {:else if list.length === 0}
 	<div class="empty-state">No servers configured. {#if $isAdmin}Add one to get started.{/if}</div>
+{:else if filtered.length === 0}
+	<div class="empty-state">No servers match "{filter}".</div>
 {:else}
 	<div class="card" style="padding:0">
 		<table class="table">
 			<thead><tr><th>Name</th><th>Host</th><th>Port</th><th>Username</th><th>Actions</th></tr></thead>
 			<tbody>
-				{#each list as sv}
+				{#each filtered as sv}
 					<tr>
 						<td><strong>{sv.name}</strong></td>
 						<td>{sv.host}</td>
@@ -172,6 +194,8 @@
 {/if}
 
 <style>
+	.header-right { display: flex; gap: 0.75rem; align-items: center; }
+	.search { width: 220px; }
 	.test-result { font-size: 0.75rem; margin-top: 0.25rem; }
 	.test-result.ok { color: var(--success); }
 	.test-result:not(.ok) { color: var(--danger); }

@@ -41,10 +41,15 @@ func (s *RunStore) Get(id string) (*models.Run, error) {
 	return r, err
 }
 
-func (s *RunStore) List() ([]*models.Run, error) {
-	rows, err := s.db.Query(
-		"SELECT id, form_id, playbook_id, server_id, variables, status, output, started_at, finished_at FROM runs ORDER BY rowid DESC",
-	)
+// List returns runs ordered by newest first. Pass limit=0 for all rows.
+func (s *RunStore) List(limit, offset int) ([]*models.Run, error) {
+	q := "SELECT id, form_id, playbook_id, server_id, variables, status, output, started_at, finished_at FROM runs ORDER BY rowid DESC"
+	args := []interface{}{}
+	if limit > 0 {
+		q += " LIMIT ? OFFSET ?"
+		args = append(args, limit, offset)
+	}
+	rows, err := s.db.Query(q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -59,6 +64,12 @@ func (s *RunStore) List() ([]*models.Run, error) {
 		runs = append(runs, r)
 	}
 	return runs, rows.Err()
+}
+
+func (s *RunStore) Count() (int, error) {
+	var n int
+	err := s.db.QueryRow("SELECT COUNT(*) FROM runs").Scan(&n)
+	return n, err
 }
 
 func (s *RunStore) SetRunning(id string) error {

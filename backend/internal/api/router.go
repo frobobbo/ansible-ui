@@ -34,7 +34,7 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 	playbooksH := newPlaybooksHandler(db.Playbooks(), uploadDir)
 	formsH := newFormsHandler(db.Forms(), formImageDir)
 	vaultsH := newVaultsHandler(vaultStore, vaultUploadDir)
-	runsH := newRunsHandler(db.Runs(), db.Forms(), db.Servers(), db.Playbooks(), vaultStore)
+	runsH := newRunsHandler(db.Runs(), db.Forms(), db.Servers(), db.Playbooks(), vaultStore, jwtSvc)
 
 	// API routes
 	api := r.Group("/api")
@@ -94,8 +94,11 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 		}
 	}
 
-	// Form images are served without auth so browser <img> tags work.
+	// Form images — served without auth so browser <img> tags work.
 	r.GET("/api/forms/:id/image", formsH.GetImage)
+
+	// Run SSE stream — auth via ?token= query param since EventSource can't send headers.
+	api.GET("/runs/:id/stream", runsH.Stream)
 
 	// Serve static SvelteKit SPA.
 	// Try to serve the real file from frontend/dist first; fall back to index.html

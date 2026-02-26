@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { users as usersApi, ApiError } from '$lib/api';
 	import { currentUser } from '$lib/stores';
+	import { toast, confirmDialog } from '$lib/toast';
 	import type { User } from '$lib/types';
 
 	let list = $state<User[]>([]);
@@ -40,8 +41,10 @@
 		try {
 			if (editingId) {
 				await usersApi.update(editingId, form);
+				toast.success('User updated');
 			} else {
 				await usersApi.create({ username: form.username, password: form.password, role: form.role });
+				toast.success('User created');
 			}
 			showModal = false;
 			await load();
@@ -53,10 +56,18 @@
 	}
 
 	async function remove(id: string) {
-		if (id === $currentUser?.id) { alert('Cannot delete your own account'); return; }
-		if (!confirm('Delete this user?')) return;
-		try { await usersApi.delete(id); await load(); }
-		catch { alert('Delete failed'); }
+		if (id === $currentUser?.id) {
+			toast.error('Cannot delete your own account');
+			return;
+		}
+		if (!(await confirmDialog('Delete this user?'))) return;
+		try {
+			await usersApi.delete(id);
+			await load();
+			toast.success('User deleted');
+		} catch {
+			toast.error('Delete failed');
+		}
 	}
 </script>
 

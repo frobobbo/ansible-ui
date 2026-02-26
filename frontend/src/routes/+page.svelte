@@ -15,18 +15,21 @@
 	onMount(async () => {
 		const role = $currentUser?.role;
 		try {
-			const promises: Promise<unknown>[] = [forms.quickActions().then(r => quickActions = r)];
+			const promises: Promise<unknown>[] = [forms.quickActions().then((r) => (quickActions = r))];
 
 			if (role === 'admin' || role === 'editor') {
 				promises.push(
-					forms.list().then(r => formCount = r.length),
-					runs.list().then(r => { runCount = r.length; recentRuns = r.slice(0, 5); }),
+					forms.list().then((r) => (formCount = r.length)),
+					runs.list({ limit: 5 }).then(({ data, total }) => {
+						runCount = total;
+						recentRuns = data ?? [];
+					})
 				);
 			}
 			if (role === 'admin') {
 				promises.push(
-					servers.list().then(r => serverCount = r.length),
-					playbooks.list().then(r => playbookCount = r.length),
+					servers.list().then((r) => (serverCount = r.length)),
+					playbooks.list().then((r) => (playbookCount = r.length))
 				);
 			}
 			await Promise.all(promises);
@@ -124,6 +127,9 @@
 					{/each}
 				</tbody>
 			</table>
+			<div style="margin-top:0.75rem;text-align:right">
+				<a href="/runs" class="btn btn-secondary btn-sm">View all {runCount} runs →</a>
+			</div>
 		</div>
 	{/if}
 {/if}
