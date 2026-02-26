@@ -40,6 +40,60 @@ The app listens on port `8080`. Open [http://localhost:8080](http://localhost:80
 - **Username**: `admin`
 - **Password**: `admin`
 
+### Kubernetes (Helm)
+
+**Add the chart repository:**
+
+```bash
+helm repo add ansible-ui https://frobobbo.github.io/ansible-ui
+helm repo update
+```
+
+**Install with default settings:**
+
+```bash
+helm install ansible-ui ansible-ui/ansible-ui \
+  --set secret.jwtSecret=$(openssl rand -hex 32) \
+  --set secret.adminPassword=yourpassword
+```
+
+**Install with Ingress:**
+
+```bash
+helm install ansible-ui ansible-ui/ansible-ui \
+  --set secret.jwtSecret=$(openssl rand -hex 32) \
+  --set secret.adminPassword=yourpassword \
+  --set ingress.enabled=true \
+  --set ingress.className=nginx \
+  --set "ingress.hosts[0].host=ansible-ui.yourdomain.com" \
+  --set "ingress.hosts[0].paths[0].path=/" \
+  --set "ingress.hosts[0].paths[0].pathType=Prefix"
+```
+
+**Access without Ingress** (port-forward):
+
+```bash
+kubectl port-forward svc/ansible-ui 8080:80
+# Open http://localhost:8080
+```
+
+**Key chart values:**
+
+| Value | Default | Description |
+|---|---|---|
+| `secret.jwtSecret` | `change-me-...` | JWT signing key — always override |
+| `secret.adminPassword` | `admin` | Initial admin password |
+| `secret.existingSecret` | `""` | Use a pre-existing Secret instead |
+| `persistence.size` | `2Gi` | PVC size for database + uploads |
+| `persistence.storageClass` | `""` | Storage class (cluster default if empty) |
+| `persistence.existingClaim` | `""` | Use a pre-existing PVC instead |
+| `ingress.enabled` | `false` | Enable Ingress resource |
+| `service.type` | `ClusterIP` | `ClusterIP`, `NodePort`, or `LoadBalancer` |
+
+The full values reference is in [`helm/ansible-ui/values.yaml`](helm/ansible-ui/values.yaml).
+
+> **Note:** The chart uses SQLite with a `ReadWriteOnce` volume and a `Recreate` deployment strategy. Keep `replicaCount: 1`.
+
 ### Build from source
 
 **Prerequisites**: Go 1.22+, Node.js 20+
@@ -102,6 +156,8 @@ ansible-frontend/
 │   └── src/
 │       ├── lib/       Shared utilities (api client, stores, types)
 │       └── routes/    Pages
+├── helm/
+│   └── ansible-ui/    Helm chart
 ├── Dockerfile
 └── docker-compose.yml
 ```
