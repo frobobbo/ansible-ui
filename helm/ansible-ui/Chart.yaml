@@ -1,0 +1,15 @@
+apiVersion: v2
+name: ansible-ui
+description: Self-hosted web UI for running Ansible playbooks via SSH
+type: application
+version: 0.1.0
+appVersion: "latest"
+keywords:
+  - ansible
+  - automation
+  - devops
+home: https://github.com/frobobbo/ansible-ui
+sources:
+  - https://github.com/frobobbo/ansible-ui
+maintainers:
+  - name: frobobbo

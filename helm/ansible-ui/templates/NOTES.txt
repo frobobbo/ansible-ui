@@ -1,0 +1,48 @@
+Ansible UI has been deployed.
+
+{{- if .Values.ingress.enabled }}
+  Access the UI at:
+  {{- range .Values.ingress.hosts }}
+  {{- range .paths }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}{{ .path }}
+  {{- end }}
+  {{- end }}
+
+{{- else if eq .Values.service.type "NodePort" }}
+  Get the NodePort address:
+
+    export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "ansible-ui.fullname" . }})
+    export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+    echo "Open: http://$NODE_IP:$NODE_PORT"
+
+{{- else if eq .Values.service.type "LoadBalancer" }}
+  Wait for the LoadBalancer IP:
+
+    kubectl get svc --namespace {{ .Release.Namespace }} {{ include "ansible-ui.fullname" . }} --watch
+
+{{- else }}
+  Forward the service port to your local machine:
+
+    kubectl port-forward --namespace {{ .Release.Namespace }} svc/{{ include "ansible-ui.fullname" . }} 8080:{{ .Values.service.port }}
+
+  Then open: http://localhost:8080
+
+{{- end }}
+
+Default login: admin / {{ .Values.secret.adminPassword }}
+{{- if eq .Values.secret.adminPassword "admin" }}
+
+WARNING: Change the default admin password!
+  Update values.yaml:  secret.adminPassword: <your-password>
+  Or use:              --set secret.adminPassword=<your-password>
+{{- end }}
+
+{{- if eq .Values.secret.jwtSecret "change-me-in-production-use-a-long-random-string" }}
+
+WARNING: JWT_SECRET is set to the insecure default!
+  Update values.yaml:  secret.jwtSecret: <random-64-char-string>
+  Or generate one:     openssl rand -hex 32
+{{- end }}
+
+NOTE: This chart uses SQLite. Keep replicaCount=1. Scaling to multiple
+replicas requires migrating to an external database (not currently supported).
