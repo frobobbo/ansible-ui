@@ -48,5 +48,7 @@ jobs:
           push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_VERSION=0.0.${{ github.run_number }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
