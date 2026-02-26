@@ -36,6 +36,16 @@ func RequireAdmin(c *gin.Context) {
 	c.Next()
 }
 
+// RequireEditor allows admin and editor roles; viewers are rejected.
+func RequireEditor(c *gin.Context) {
+	claims, ok := c.MustGet(ClaimsKey).(*Claims)
+	if !ok || (claims.Role != "admin" && claims.Role != "editor") {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "editor role required"})
+		return
+	}
+	c.Next()
+}
+
 func GetClaims(c *gin.Context) *Claims {
 	v, _ := c.Get(ClaimsKey)
 	claims, _ := v.(*Claims)

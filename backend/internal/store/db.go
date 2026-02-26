@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/brettjrea/ansible-frontend/internal/models"
@@ -47,6 +48,26 @@ func New(dsn string) (*DB, error) {
 	db.Exec("ALTER TABLE forms ADD COLUMN vault_id TEXT REFERENCES vaults(id) ON DELETE SET NULL")
 	db.Exec("ALTER TABLE vaults ADD COLUMN vault_file_path TEXT NOT NULL DEFAULT ''")
 	db.Exec("ALTER TABLE vaults ADD COLUMN vault_file_name TEXT NOT NULL DEFAULT ''")
+	db.Exec("ALTER TABLE forms ADD COLUMN is_quick_action INTEGER NOT NULL DEFAULT 0")
+	db.Exec("ALTER TABLE forms ADD COLUMN image_path TEXT NOT NULL DEFAULT ''")
+	db.Exec("ALTER TABLE forms ADD COLUMN image_name TEXT NOT NULL DEFAULT ''")
+
+	// Migrate users table to add 'editor' role — SQLite CHECK constraints require
+	// a full table rebuild; check sqlite_master to avoid re-running on every start.
+	var userSchema string
+	db.QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'").Scan(&userSchema)
+	if !strings.Contains(userSchema, "'editor'") {
+		db.Exec(`ALTER TABLE users RENAME TO _users_old`)
+		db.Exec(`CREATE TABLE users (
+			id            TEXT PRIMARY KEY,
+			username      TEXT NOT NULL UNIQUE,
+			password_hash TEXT NOT NULL,
+			role          TEXT NOT NULL CHECK(role IN ('admin','editor','viewer')) DEFAULT 'viewer',
+			created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`)
+		db.Exec(`INSERT INTO users SELECT * FROM _users_old`)
+		db.Exec(`DROP TABLE _users_old`)
+	}
 
 	return &DB{conn: db}, nil
 }

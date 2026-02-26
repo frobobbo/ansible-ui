@@ -80,11 +80,18 @@ export const forms = {
 	list: () => request<Form[]>('/forms'),
 	get: (id: string) => request<Form>(`/forms/${id}`),
 	getFields: (id: string) => request<FormField[]>(`/forms/${id}/fields`),
+	quickActions: () => request<Form[]>('/quick-actions'),
 	create: (data: Partial<Form> & { fields?: Partial<FormField>[] }) =>
 		request<Form>('/forms', { method: 'POST', body: JSON.stringify(data) }),
 	update: (id: string, data: Partial<Form> & { fields?: Partial<FormField>[] }) =>
 		request<Form>(`/forms/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 	delete: (id: string) => request<void>(`/forms/${id}`, { method: 'DELETE' }),
+	uploadImage: (id: string, file: File) => {
+		const fd = new FormData();
+		fd.append('file', file);
+		return request<Form>(`/forms/${id}/image`, { method: 'POST', body: fd });
+	},
+	deleteImage: (id: string) => request<Form>(`/forms/${id}/image`, { method: 'DELETE' }),
 };
 
 export const vaults = {

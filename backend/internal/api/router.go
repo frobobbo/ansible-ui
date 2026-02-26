@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUploadDir string, jwtSecret string) *gin.Engine {
+func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUploadDir string, formImageDir string, jwtSecret string) *gin.Engine {
 	r := gin.Default()
 
 	// CORS middleware
@@ -32,7 +32,7 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 	usersH := newUsersHandler(db.Users())
 	serversH := newServersHandler(db.Servers())
 	playbooksH := newPlaybooksHandler(db.Playbooks(), uploadDir)
-	formsH := newFormsHandler(db.Forms())
+	formsH := newFormsHandler(db.Forms(), formImageDir)
 	vaultsH := newVaultsHandler(vaultStore, vaultUploadDir)
 	runsH := newRunsHandler(db.Runs(), db.Forms(), db.Servers(), db.Playbooks(), vaultStore)
 
@@ -69,9 +69,14 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 			protected.GET("/forms", formsH.List)
 			protected.GET("/forms/:id", formsH.Get)
 			protected.GET("/forms/:id/fields", formsH.GetFields)
-			protected.POST("/forms", formsH.Create)
-			protected.PUT("/forms/:id", formsH.Update)
-			protected.DELETE("/forms/:id", formsH.Delete)
+			protected.POST("/forms", auth.RequireEditor, formsH.Create)
+			protected.PUT("/forms/:id", auth.RequireEditor, formsH.Update)
+			protected.DELETE("/forms/:id", auth.RequireEditor, formsH.Delete)
+			protected.POST("/forms/:id/image", auth.RequireEditor, formsH.UploadImage)
+			protected.DELETE("/forms/:id/image", auth.RequireEditor, formsH.DeleteImage)
+
+			// Quick actions — accessible to all authenticated users (including viewers)
+			protected.GET("/quick-actions", formsH.GetQuickActions)
 
 			// Vaults (admin-only writes)
 			protected.GET("/vaults", vaultsH.List)
@@ -88,6 +93,9 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 			protected.POST("/runs", runsH.Create)
 		}
 	}
+
+	// Form images are served without auth so browser <img> tags work.
+	r.GET("/api/forms/:id/image", formsH.GetImage)
 
 	// Serve static SvelteKit SPA.
 	// Try to serve the real file from frontend/dist first; fall back to index.html

@@ -9,7 +9,9 @@
 	let serverList = $state<Server[]>([]);
 	let playbookList = $state<Playbook[]>([]);
 	let vaultList = $state<Vault[]>([]);
-	let formData = $state({ name: '', description: '', server_id: '', playbook_id: '', vault_id: '' });
+	let formData = $state({ name: '', description: '', server_id: '', playbook_id: '', vault_id: '', is_quick_action: false });
+	let imageName = $state('');
+	let imageUploading = $state(false);
 	let fields = $state<Partial<FormField>[]>([]);
 	let loading = $state(true);
 	let saving = $state(false);
@@ -26,7 +28,8 @@
 		playbookList = pbList;
 		vaultList = vList;
 		if (form) {
-			formData = { name: form.name, description: form.description, server_id: form.server_id, playbook_id: form.playbook_id, vault_id: form.vault_id ?? '' };
+			formData = { name: form.name, description: form.description, server_id: form.server_id, playbook_id: form.playbook_id, vault_id: form.vault_id ?? '', is_quick_action: form.is_quick_action };
+			imageName = form.image_name;
 			fields = form.fields || [];
 		}
 		loading = false;
@@ -58,6 +61,31 @@
 			error = err instanceof ApiError ? err.message : 'Save failed';
 		} finally {
 			saving = false;
+		}
+	}
+
+	async function uploadImage(input: HTMLInputElement) {
+		const file = input.files?.[0];
+		if (!file) return;
+		imageUploading = true;
+		try {
+			const updated = await formsApi.uploadImage(id, file);
+			imageName = updated.image_name;
+		} catch (err) {
+			alert(err instanceof ApiError ? err.message : 'Upload failed');
+		} finally {
+			imageUploading = false;
+			input.value = '';
+		}
+	}
+
+	async function removeImage() {
+		if (!confirm('Remove the image from this form?')) return;
+		try {
+			const updated = await formsApi.deleteImage(id);
+			imageName = updated.image_name;
+		} catch {
+			alert('Failed to remove image');
 		}
 	}
 </script>
@@ -108,6 +136,32 @@
 					</select>
 					<small class="hint">Select a vault to pass --vault-password-file when running this form.</small>
 				</div>
+				<div class="form-group">
+					<label class="checkbox-label">
+						<input type="checkbox" bind:checked={formData.is_quick_action} />
+						Show as Quick Action on dashboard
+					</label>
+					<small class="hint">Quick actions appear as clickable cards on the dashboard for all users.</small>
+				</div>
+			</div>
+			<div class="form-group" style="margin-top:0.5rem">
+				<label>Quick Action Image (optional)</label>
+				{#if imageName}
+					<div class="image-preview-row">
+						<img src="/api/forms/{id}/image" alt={formData.name} class="image-preview" />
+						<div>
+							<div class="file-badge">{imageName}</div>
+							<button type="button" class="btn btn-sm btn-danger" style="margin-top:0.5rem" onclick={removeImage}>Remove Image</button>
+						</div>
+					</div>
+				{:else}
+					<label class="btn btn-secondary file-label" class:disabled={imageUploading}>
+						{imageUploading ? 'Uploading…' : 'Choose Image…'}
+						<input type="file" accept="image/*" style="display:none" disabled={imageUploading}
+							onchange={(e) => uploadImage(e.currentTarget as HTMLInputElement)} />
+					</label>
+				{/if}
+				<small class="hint">Displayed on the quick action card. PNG, JPG, SVG, etc.</small>
 			</div>
 		</div>
 
@@ -173,4 +227,11 @@
 	.field-required { display: flex; align-items: center; }
 	.field-required label { display: flex; align-items: center; gap: 0.375rem; font-weight: normal; margin-bottom: 0; }
 	.field-remove { align-self: flex-end; margin-bottom: 1rem; }
+	.checkbox-label { display: flex; align-items: center; gap: 0.5rem; font-weight: 500; cursor: pointer; }
+	.image-preview-row { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 0.5rem; }
+	.image-preview { width: 80px; height: 80px; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--border); }
+	.file-badge { display: inline-flex; align-items: center; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; border-radius: 4px; padding: 0.15rem 0.5rem; font-size: 0.8rem; }
+	.file-label { cursor: pointer; display: inline-flex; align-items: center; }
+	.file-label.disabled { opacity: 0.6; cursor: not-allowed; }
+	.hint { display: block; margin-top: 0.25rem; font-size: 0.8rem; color: #64748b; }
 </style>

@@ -27,3 +27,4 @@ export const authStore = createAuthStore();
 export const isAuthenticated = derived(authStore, ($a) => !!$a.token);
 export const currentUser = derived(authStore, ($a) => $a.user);
 export const isAdmin = derived(authStore, ($a) => $a.user?.role === 'admin');
+export const isEditor = derived(authStore, ($a) => $a.user?.role === 'admin' || $a.user?.role === 'editor');

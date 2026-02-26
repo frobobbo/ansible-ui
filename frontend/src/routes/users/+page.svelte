@@ -75,7 +75,7 @@
 				{#each list as u}
 					<tr>
 						<td><strong>{u.username}</strong>{#if u.id === $currentUser?.id} <span class="badge badge-info">You</span>{/if}</td>
-						<td><span class="badge {u.role === 'admin' ? 'badge-warning' : 'badge-muted'}">{u.role}</span></td>
+						<td><span class="badge {u.role === 'admin' ? 'badge-warning' : u.role === 'editor' ? 'badge-info' : 'badge-muted'}">{u.role}</span></td>
 						<td>{new Date(u.created_at).toLocaleDateString()}</td>
 						<td>
 							<div class="actions">
@@ -107,8 +107,9 @@
 				<div class="form-group">
 					<label>Role</label>
 					<select class="form-control" bind:value={form.role}>
-						<option value="viewer">Viewer</option>
-						<option value="admin">Admin</option>
+						<option value="viewer">Viewer — dashboard only</option>
+						<option value="editor">Editor — dashboard + forms + run history</option>
+						<option value="admin">Admin — full access</option>
 					</select>
 				</div>
 				<div class="actions" style="justify-content:flex-end">

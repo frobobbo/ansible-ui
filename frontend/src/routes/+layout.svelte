@@ -2,7 +2,7 @@
 	import '../app.css';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { authStore, isAuthenticated, currentUser, isAdmin } from '$lib/stores';
+	import { authStore, isAuthenticated, currentUser, isAdmin, isEditor } from '$lib/stores';
 	import { auth } from '$lib/api';
 
 	let { children } = $props();
@@ -28,10 +28,14 @@
 		<nav class="sidebar">
 			<div class="logo">Ansible UI</div>
 			<a href="/" class="nav-link" class:active={$page.url.pathname === '/'}>Dashboard</a>
-			<a href="/servers" class="nav-link" class:active={$page.url.pathname.startsWith('/servers')}>Servers</a>
-			<a href="/playbooks" class="nav-link" class:active={$page.url.pathname.startsWith('/playbooks')}>Playbooks</a>
-			<a href="/forms" class="nav-link" class:active={$page.url.pathname.startsWith('/forms')}>Forms</a>
-			<a href="/runs" class="nav-link" class:active={$page.url.pathname.startsWith('/runs')}>Run History</a>
+			{#if $isAdmin}
+				<a href="/servers" class="nav-link" class:active={$page.url.pathname.startsWith('/servers')}>Servers</a>
+				<a href="/playbooks" class="nav-link" class:active={$page.url.pathname.startsWith('/playbooks')}>Playbooks</a>
+			{/if}
+			{#if $isEditor}
+				<a href="/forms" class="nav-link" class:active={$page.url.pathname.startsWith('/forms')}>Forms</a>
+				<a href="/runs" class="nav-link" class:active={$page.url.pathname.startsWith('/runs')}>Run History</a>
+			{/if}
 			{#if $isAdmin}
 				<a href="/vaults" class="nav-link" class:active={$page.url.pathname.startsWith('/vaults')}>Vaults</a>
 				<a href="/users" class="nav-link" class:active={$page.url.pathname.startsWith('/users')}>Users</a>

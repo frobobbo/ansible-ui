@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS users (
     id            TEXT PRIMARY KEY,
     username      TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
-    role          TEXT NOT NULL CHECK(role IN ('admin','viewer')) DEFAULT 'viewer',
+    role          TEXT NOT NULL CHECK(role IN ('admin','editor','viewer')) DEFAULT 'viewer',
     created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -36,14 +36,17 @@ CREATE TABLE IF NOT EXISTS vaults (
 );
 
 CREATE TABLE IF NOT EXISTS forms (
-    id          TEXT PRIMARY KEY,
-    name        TEXT NOT NULL,
-    description TEXT NOT NULL DEFAULT '',
-    playbook_id TEXT NOT NULL REFERENCES playbooks(id) ON DELETE CASCADE,
-    server_id   TEXT NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
-    vault_id    TEXT REFERENCES vaults(id) ON DELETE SET NULL,
-    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    description     TEXT NOT NULL DEFAULT '',
+    playbook_id     TEXT NOT NULL REFERENCES playbooks(id) ON DELETE CASCADE,
+    server_id       TEXT NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+    vault_id        TEXT REFERENCES vaults(id) ON DELETE SET NULL,
+    is_quick_action INTEGER NOT NULL DEFAULT 0,
+    image_path      TEXT NOT NULL DEFAULT '',
+    image_name      TEXT NOT NULL DEFAULT '',
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS form_fields (

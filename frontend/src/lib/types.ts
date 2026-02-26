@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'viewer';
+export type Role = 'admin' | 'editor' | 'viewer';
 export type FieldType = 'text' | 'number' | 'bool' | 'select';
 export type RunStatus = 'pending' | 'running' | 'success' | 'failed';
 
@@ -55,6 +55,8 @@ export interface Form {
 	playbook_id: string;
 	server_id: string;
 	vault_id?: string | null;
+	is_quick_action: boolean;
+	image_name: string;
 	fields?: FormField[];
 	created_at: string;
 	updated_at: string;

@@ -7,8 +7,9 @@
 	let serverList = $state<Server[]>([]);
 	let playbookList = $state<Playbook[]>([]);
 	let vaultList = $state<Vault[]>([]);
-	let formData = $state({ name: '', description: '', server_id: '', playbook_id: '', vault_id: '' });
+	let formData = $state({ name: '', description: '', server_id: '', playbook_id: '', vault_id: '', is_quick_action: false });
 	let fields = $state<Partial<FormField>[]>([]);
+	let stagedImage = $state<File | null>(null);
 	let saving = $state(false);
 	let error = $state('');
 
@@ -36,7 +37,10 @@
 		saving = true;
 		error = '';
 		try {
-			await formsApi.create({ ...formData, fields });
+			const created = await formsApi.create({ ...formData, fields });
+			if (stagedImage) {
+				await formsApi.uploadImage(created.id, stagedImage);
+			}
 			goto('/forms');
 		} catch (err) {
 			error = err instanceof ApiError ? err.message : 'Save failed';
@@ -87,7 +91,32 @@
 				</select>
 				<small class="hint">Select a vault to pass --vault-password-file when running this form.</small>
 			</div>
+			<div class="form-group">
+				<label class="checkbox-label">
+					<input type="checkbox" bind:checked={formData.is_quick_action} />
+					Show as Quick Action on dashboard
+				</label>
+				<small class="hint">Quick actions appear as clickable cards on the dashboard for all users.</small>
+			</div>
 		</div>
+		{#if formData.is_quick_action}
+			<div class="form-group" style="margin-top:0.5rem">
+				<label>Quick Action Image (optional)</label>
+				{#if stagedImage}
+					<div style="display:flex;align-items:center;gap:0.75rem">
+						<span class="file-badge">{stagedImage.name}</span>
+						<button type="button" class="btn btn-sm btn-danger" onclick={() => stagedImage = null}>Remove</button>
+					</div>
+				{:else}
+					<label class="btn btn-secondary file-label">
+						Choose Image…
+						<input type="file" accept="image/*" style="display:none"
+							onchange={(e) => { stagedImage = (e.currentTarget as HTMLInputElement).files?.[0] ?? null; }} />
+					</label>
+				{/if}
+				<small class="hint">Displayed on the quick action card. PNG, JPG, SVG, etc.</small>
+			</div>
+		{/if}
 	</div>
 
 	<div class="card">
@@ -151,4 +180,8 @@
 	.field-required { display: flex; align-items: center; }
 	.field-required label { display: flex; align-items: center; gap: 0.375rem; font-weight: normal; margin-bottom: 0; }
 	.field-remove { align-self: flex-end; margin-bottom: 1rem; }
+	.checkbox-label { display: flex; align-items: center; gap: 0.5rem; font-weight: 500; cursor: pointer; }
+	.file-badge { display: inline-flex; align-items: center; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; border-radius: 4px; padding: 0.15rem 0.5rem; font-size: 0.8rem; }
+	.file-label { cursor: pointer; display: inline-flex; align-items: center; }
+	.hint { display: block; margin-top: 0.25rem; font-size: 0.8rem; color: #64748b; }
 </style>

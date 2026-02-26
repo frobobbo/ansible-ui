@@ -13,10 +13,23 @@ type FormStore struct {
 	db *sql.DB
 }
 
+const formSelect = "SELECT id, name, description, playbook_id, server_id, vault_id, is_quick_action, image_name, created_at, updated_at FROM forms"
+
+func scanForm(row interface {
+	Scan(...any) error
+}) (*models.Form, error) {
+	f := &models.Form{}
+	var isQuickAction int
+	err := row.Scan(&f.ID, &f.Name, &f.Description, &f.PlaybookID, &f.ServerID, &f.VaultID, &isQuickAction, &f.ImageName, &f.CreatedAt, &f.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	f.IsQuickAction = isQuickAction == 1
+	return f, nil
+}
+
 func (s *FormStore) List() ([]*models.Form, error) {
-	rows, err := s.db.Query(
-		"SELECT id, name, description, playbook_id, server_id, vault_id, created_at, updated_at FROM forms ORDER BY name",
-	)
+	rows, err := s.db.Query(formSelect + " ORDER BY name")
 	if err != nil {
 		return nil, err
 	}
@@ -24,8 +37,26 @@ func (s *FormStore) List() ([]*models.Form, error) {
 
 	var forms []*models.Form
 	for rows.Next() {
-		f := &models.Form{}
-		if err := rows.Scan(&f.ID, &f.Name, &f.Description, &f.PlaybookID, &f.ServerID, &f.VaultID, &f.CreatedAt, &f.UpdatedAt); err != nil {
+		f, err := scanForm(rows)
+		if err != nil {
+			return nil, err
+		}
+		forms = append(forms, f)
+	}
+	return forms, rows.Err()
+}
+
+func (s *FormStore) GetQuickActions() ([]*models.Form, error) {
+	rows, err := s.db.Query(formSelect+" WHERE is_quick_action = 1 ORDER BY name")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var forms []*models.Form
+	for rows.Next() {
+		f, err := scanForm(rows)
+		if err != nil {
 			return nil, err
 		}
 		forms = append(forms, f)
@@ -34,10 +65,7 @@ func (s *FormStore) List() ([]*models.Form, error) {
 }
 
 func (s *FormStore) Get(id string) (*models.Form, error) {
-	f := &models.Form{}
-	err := s.db.QueryRow(
-		"SELECT id, name, description, playbook_id, server_id, vault_id, created_at, updated_at FROM forms WHERE id = ?", id,
-	).Scan(&f.ID, &f.Name, &f.Description, &f.PlaybookID, &f.ServerID, &f.VaultID, &f.CreatedAt, &f.UpdatedAt)
+	f, err := scanForm(s.db.QueryRow(formSelect+" WHERE id = ?", id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -76,7 +104,7 @@ func (s *FormStore) GetFields(formID string) ([]models.FormField, error) {
 	return fields, rows.Err()
 }
 
-func (s *FormStore) Create(name, description, playbookID, serverID string, vaultID *string, fields []models.FormField) (*models.Form, error) {
+func (s *FormStore) Create(name, description, playbookID, serverID string, vaultID *string, isQuickAction bool, fields []models.FormField) (*models.Form, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
@@ -85,19 +113,20 @@ func (s *FormStore) Create(name, description, playbookID, serverID string, vault
 
 	now := time.Now()
 	f := &models.Form{
-		ID:          uuid.New().String(),
-		Name:        name,
-		Description: description,
-		PlaybookID:  playbookID,
-		ServerID:    serverID,
-		VaultID:     vaultID,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:            uuid.New().String(),
+		Name:          name,
+		Description:   description,
+		PlaybookID:    playbookID,
+		ServerID:      serverID,
+		VaultID:       vaultID,
+		IsQuickAction: isQuickAction,
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
 
 	_, err = tx.Exec(
-		"INSERT INTO forms (id, name, description, playbook_id, server_id, vault_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-		f.ID, f.Name, f.Description, f.PlaybookID, f.ServerID, f.VaultID, f.CreatedAt, f.UpdatedAt,
+		"INSERT INTO forms (id, name, description, playbook_id, server_id, vault_id, is_quick_action, image_path, image_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, '', '', ?, ?)",
+		f.ID, f.Name, f.Description, f.PlaybookID, f.ServerID, f.VaultID, boolToInt(f.IsQuickAction), f.CreatedAt, f.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -120,7 +149,7 @@ func (s *FormStore) Create(name, description, playbookID, serverID string, vault
 	return f, tx.Commit()
 }
 
-func (s *FormStore) Update(id, name, description, playbookID, serverID string, vaultID *string, fields []models.FormField) (*models.Form, error) {
+func (s *FormStore) Update(id, name, description, playbookID, serverID string, vaultID *string, isQuickAction bool, fields []models.FormField) (*models.Form, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
@@ -128,8 +157,8 @@ func (s *FormStore) Update(id, name, description, playbookID, serverID string, v
 	defer tx.Rollback()
 
 	_, err = tx.Exec(
-		"UPDATE forms SET name=?, description=?, playbook_id=?, server_id=?, vault_id=?, updated_at=? WHERE id=?",
-		name, description, playbookID, serverID, vaultID, time.Now(), id,
+		"UPDATE forms SET name=?, description=?, playbook_id=?, server_id=?, vault_id=?, is_quick_action=?, updated_at=? WHERE id=?",
+		name, description, playbookID, serverID, vaultID, boolToInt(isQuickAction), time.Now(), id,
 	)
 	if err != nil {
 		return nil, err
@@ -161,6 +190,23 @@ func (s *FormStore) Update(id, name, description, playbookID, serverID string, v
 func (s *FormStore) Delete(id string) error {
 	_, err := s.db.Exec("DELETE FROM forms WHERE id = ?", id)
 	return err
+}
+
+// SetImage stores the local image path and original filename for a form.
+func (s *FormStore) SetImage(id, filePath, fileName string) error {
+	_, err := s.db.Exec("UPDATE forms SET image_path=?, image_name=? WHERE id=?", filePath, fileName, id)
+	return err
+}
+
+// ClearImage removes the image reference and returns the old local path for deletion.
+func (s *FormStore) ClearImage(id string) (string, error) {
+	var oldPath string
+	err := s.db.QueryRow("SELECT image_path FROM forms WHERE id = ?", id).Scan(&oldPath)
+	if err != nil {
+		return "", err
+	}
+	_, err = s.db.Exec("UPDATE forms SET image_path='', image_name='' WHERE id=?", id)
+	return oldPath, err
 }
 
 func boolToInt(b bool) int {
