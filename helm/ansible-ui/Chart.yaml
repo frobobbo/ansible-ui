@@ -2,7 +2,7 @@ apiVersion: v2
 name: ansible-ui
 description: Self-hosted web UI for running Ansible playbooks via SSH
 type: application
-version: 0.1.0
+version: 0.1.1
 appVersion: "latest"
 keywords:
   - ansible
