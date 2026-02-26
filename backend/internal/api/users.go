@@ -33,7 +33,7 @@ func (h *UsersHandler) Create(c *gin.Context) {
 	var req struct {
 		Username string `json:"username" binding:"required"`
 		Password string `json:"password" binding:"required"`
-		Role     string `json:"role" binding:"required,oneof=admin viewer"`
+		Role     string `json:"role" binding:"required,oneof=admin editor viewer"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -59,7 +59,7 @@ func (h *UsersHandler) Update(c *gin.Context) {
 	var req struct {
 		Username string `json:"username" binding:"required"`
 		Password string `json:"password"`
-		Role     string `json:"role" binding:"required,oneof=admin viewer"`
+		Role     string `json:"role" binding:"required,oneof=admin editor viewer"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
