@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { runs as runsApi } from '$lib/api';
+	import { goto } from '$app/navigation';
+	import { runs as runsApi, ApiError } from '$lib/api';
 	import type { Run } from '$lib/types';
 
 	const PAGE_SIZE = 25;
@@ -45,6 +46,18 @@
 		const s = Math.floor(ms / 1000);
 		return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
 	}
+
+	async function rerun(run: Run) {
+		if (!run.form_id) return;
+		try {
+			let vars: Record<string, unknown> = {};
+			try { vars = JSON.parse(run.variables || '{}'); } catch { /* use empty */ }
+			const { run_id } = await runsApi.create(run.form_id, vars);
+			goto(`/runs/${run_id}`);
+		} catch (err) {
+			alert(err instanceof ApiError ? err.message : 'Failed to re-run');
+		}
+	}
 </script>
 
 <div class="page-header">
@@ -77,7 +90,12 @@
 						<td><span class="badge {statusClass(run.status)}">{run.status}</span></td>
 						<td>{duration(run)}</td>
 						<td>{run.started_at ? new Date(run.started_at).toLocaleString() : '—'}</td>
-						<td><a href="/runs/{run.id}" class="btn btn-sm btn-secondary">View</a></td>
+						<td class="actions">
+						<a href="/runs/{run.id}" class="btn btn-sm btn-secondary">View</a>
+						{#if run.form_id}
+							<button class="btn btn-sm btn-secondary" onclick={() => rerun(run)}>↻</button>
+						{/if}
+					</td>
 					</tr>
 				{/each}
 			</tbody>

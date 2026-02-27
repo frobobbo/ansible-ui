@@ -10,6 +10,12 @@
 	let { children } = $props();
 
 	let sidebarOpen = $state(false);
+	let darkMode = $state(typeof localStorage !== 'undefined' && localStorage.getItem('theme') === 'dark');
+
+	$effect(() => {
+		document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+		localStorage?.setItem('theme', darkMode ? 'dark' : 'light');
+	});
 
 	// Close sidebar when navigating (mobile)
 	$effect(() => {
@@ -160,6 +166,23 @@
 					<span class="user-name">{$currentUser?.username}</span>
 					<span class="user-role">{$currentUser?.role}</span>
 				</div>
+				<button class="btn-theme" onclick={() => (darkMode = !darkMode)} aria-label="Toggle dark mode">
+					{#if darkMode}
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+							<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/>
+							<line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+							<line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/>
+							<line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+							<line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+						</svg>
+						Light mode
+					{:else}
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+						</svg>
+						Dark mode
+					{/if}
+				</button>
 				<button class="btn-logout" onclick={handleLogout}>Sign Out</button>
 				<span class="version-info">v{__APP_VERSION__}</span>
 			</div>
@@ -277,6 +300,14 @@
 		font-size: 0.65rem; background: rgba(86,54,209,0.25);
 		color: #a78bfa; padding: 0.1rem 0.4rem; border-radius: 999px; white-space: nowrap;
 	}
+	.btn-theme {
+		display: flex; align-items: center; gap: 0.4rem;
+		background: none; border: 1px solid rgba(255,255,255,0.1);
+		color: var(--sidebar-text); padding: 0.375rem 0.75rem;
+		border-radius: var(--radius); cursor: pointer; font-size: 0.8rem;
+		transition: background 0.15s, border-color 0.15s, color 0.15s; width: 100%;
+	}
+	.btn-theme:hover { background: rgba(86,54,209,0.15); border-color: var(--primary); color: #a78bfa; }
 	.btn-logout {
 		background: none; border: 1px solid rgba(255,255,255,0.1);
 		color: var(--sidebar-text); padding: 0.375rem 0.75rem;

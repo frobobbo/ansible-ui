@@ -2,14 +2,19 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { get } from 'svelte/store';
 	import { page } from '$app/stores';
-	import { runs as runsApi } from '$lib/api';
+	import { goto } from '$app/navigation';
+	import { runs as runsApi, ApiError } from '$lib/api';
 	import { authStore } from '$lib/stores';
 	import type { Run } from '$lib/types';
+	import AnsiToHtml from 'ansi-to-html';
+
+	const conv = new AnsiToHtml({ escapeXML: true });
 
 	let id = $derived($page.params.id);
 	let run = $state<Run | null>(null);
 	let loading = $state(true);
 	let streaming = $state(false);
+	let rerunning = $state(false);
 	let es: EventSource | null = null;
 
 	onMount(async () => {
@@ -24,7 +29,6 @@
 
 	function startStream() {
 		streaming = true;
-		// Clear output so we rebuild it from SSE (output is empty while running)
 		if (run) run = { ...run, output: '' };
 
 		const token = get(authStore).token ?? '';
@@ -40,7 +44,6 @@
 			es?.close();
 			es = null;
 			streaming = false;
-			// Refresh to get final DB state (status, finished_at, etc.)
 			runsApi.get(id).then((r) => { if (r) run = r; });
 		});
 
@@ -48,9 +51,22 @@
 			es?.close();
 			es = null;
 			streaming = false;
-			// Fall back to one final fetch
 			runsApi.get(id).then((r) => { if (r) run = r; });
 		};
+	}
+
+	async function rerun() {
+		if (!run?.form_id) return;
+		rerunning = true;
+		try {
+			let vars: Record<string, unknown> = {};
+			try { vars = JSON.parse(run.variables || '{}'); } catch { /* use empty */ }
+			const { run_id } = await runsApi.create(run.form_id, vars);
+			goto(`/runs/${run_id}`);
+		} catch (err) {
+			alert(err instanceof ApiError ? err.message : 'Failed to re-run');
+			rerunning = false;
+		}
 	}
 
 	function statusClass(status: string) {
@@ -61,11 +77,20 @@
 		if (!run?.variables) return {};
 		try { return JSON.parse(run.variables); } catch { return {}; }
 	});
+
+	let outputHtml = $derived(conv.toHtml(run?.output || ''));
 </script>
 
 <div class="page-header">
 	<h1>Run Detail</h1>
-	<a href="/runs" class="btn btn-secondary">← Back</a>
+	<div class="actions">
+		{#if run?.form_id}
+			<button class="btn btn-secondary" onclick={rerun} disabled={rerunning}>
+				{rerunning ? 'Starting…' : '↻ Re-run'}
+			</button>
+		{/if}
+		<a href="/runs" class="btn btn-secondary">← Back</a>
+	</div>
 </div>
 
 {#if loading}
@@ -105,7 +130,7 @@
 			<h2>Output</h2>
 			{#if streaming}<span class="streaming">● Streaming live output…</span>{/if}
 		</div>
-		<pre class="output">{run.output || (streaming ? 'Waiting for output…' : 'No output.')}</pre>
+		<pre class="output">{@html outputHtml || (streaming ? '<span class="muted-out">Waiting for output…</span>' : '<span class="muted-out">No output.</span>')}</pre>
 	</div>
 {/if}
 
@@ -116,4 +141,5 @@
 	.output-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
 	.output-header h2 { margin-bottom: 0; }
 	.output { background: #0f172a; color: #e2e8f0; padding: 1.25rem; border-radius: var(--radius); font-size: 0.8rem; line-height: 1.6; overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 600px; overflow-y: auto; }
+	:global(.muted-out) { color: #64748b; font-style: italic; }
 </style>

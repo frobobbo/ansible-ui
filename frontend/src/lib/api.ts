@@ -162,4 +162,5 @@ export const runs = {
 			method: 'POST',
 			body: JSON.stringify({ form_id: formId, variables }),
 		}),
+	cancel: (id: string) => request<void>(`/runs/${id}/cancel`, { method: 'POST' }),
 };

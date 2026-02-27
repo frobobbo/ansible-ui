@@ -20,11 +20,12 @@ import (
 
 // liveRun holds in-progress output and SSE subscribers for a single run.
 type liveRun struct {
-	mu     sync.Mutex
-	lines  []string
-	subs   []chan string
-	done   bool
-	status string
+	mu       sync.Mutex
+	lines    []string
+	subs     []chan string
+	done     bool
+	status   string
+	cancelFn context.CancelFunc
 }
 
 type RunsHandler struct {
@@ -258,10 +259,26 @@ func (h *RunsHandler) finishLiveRun(runID, status string) {
 
 // ── Execution ─────────────────────────────────────────────────────────────────
 
-func (h *RunsHandler) executeRun(runID string, form *models.Form, variables map[string]interface{}) {
-	ctx := context.Background()
+// Cancel stops an in-progress run by cancelling its context.
+func (h *RunsHandler) Cancel(c *gin.Context) {
+	val, ok := h.liveRuns.Load(c.Param("id"))
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "run not in progress"})
+		return
+	}
+	lr := val.(*liveRun)
+	lr.mu.Lock()
+	if lr.cancelFn != nil {
+		lr.cancelFn()
+	}
+	lr.mu.Unlock()
+	c.Status(http.StatusNoContent)
+}
 
-	lr := &liveRun{}
+func (h *RunsHandler) executeRun(runID string, form *models.Form, variables map[string]interface{}) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	lr := &liveRun{cancelFn: cancel}
 	h.liveRuns.Store(runID, lr)
 
 	fail := func(msg string) {

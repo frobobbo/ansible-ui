@@ -95,7 +95,16 @@ func (c *SSHClient) RunPlaybook(ctx context.Context, playbookPath string, variab
 	}()
 
 	exitCode := 0
-	runErr := session.Run(cmd)
+	runDone := make(chan error, 1)
+	go func() { runDone <- session.Run(cmd) }()
+	var runErr error
+	select {
+	case runErr = <-runDone:
+	case <-ctx.Done():
+		_ = session.Signal(ssh.SIGTERM)
+		session.Close()
+		runErr = fmt.Errorf("cancelled")
+	}
 	pw.Close()
 	<-done // wait for scanner to finish
 

@@ -36,6 +36,11 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 	formsH := newFormsHandler(db.Forms(), formImageDir, sched)
 	vaultsH := newVaultsHandler(vaultStore, vaultUploadDir)
 
+	// Health check — no auth required
+	r.GET("/healthz", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
 	// API routes
 	api := r.Group("/api")
 	{
@@ -91,6 +96,7 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 			protected.GET("/runs", runsH.List)
 			protected.GET("/runs/:id", runsH.Get)
 			protected.POST("/runs", runsH.Create)
+			protected.POST("/runs/:id/cancel", runsH.Cancel)
 		}
 	}
 

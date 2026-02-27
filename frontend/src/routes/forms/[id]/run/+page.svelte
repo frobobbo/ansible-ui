@@ -1,9 +1,13 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
+	import { get } from 'svelte/store';
 	import { page } from '$app/stores';
 	import { forms as formsApi, runs as runsApi, ApiError } from '$lib/api';
-	import { isEditor } from '$lib/stores';
-	import type { Form, FormField, Run } from '$lib/types';
+	import { isEditor, authStore } from '$lib/stores';
+	import type { Form, Run } from '$lib/types';
+	import AnsiToHtml from 'ansi-to-html';
+
+	const conv = new AnsiToHtml({ escapeXML: true });
 
 	let id = $derived($page.params.id);
 	let form = $state<Form | null>(null);
@@ -12,7 +16,9 @@
 	let running = $state(false);
 	let runResult = $state<Run | null>(null);
 	let error = $state('');
-	let pollInterval: ReturnType<typeof setInterval> | null = null;
+	let currentRunId = $state<string | null>(null);
+	let outputLines = $state<string[]>([]);
+	let es: EventSource | null = null;
 
 	onMount(async () => {
 		form = await formsApi.get(id);
@@ -24,17 +30,16 @@
 		loading = false;
 	});
 
-	onDestroy(() => {
-		if (pollInterval) clearInterval(pollInterval);
-	});
+	onDestroy(() => { es?.close(); });
 
 	async function executeRun() {
 		if (!form) return;
 		running = true;
 		error = '';
 		runResult = null;
+		outputLines = [];
+		currentRunId = null;
 
-		// Convert typed values
 		const typedVars: Record<string, unknown> = {};
 		for (const field of form.fields || []) {
 			const val = variables[field.name];
@@ -45,26 +50,41 @@
 
 		try {
 			const { run_id } = await runsApi.create(id, typedVars);
+			currentRunId = run_id;
 
-			// Poll for status
-			pollInterval = setInterval(async () => {
-				const r = await runsApi.get(run_id);
-				runResult = r;
-				if (r && (r.status === 'success' || r.status === 'failed')) {
-					if (pollInterval) clearInterval(pollInterval);
-					pollInterval = null;
-					running = false;
-				}
-			}, 2000);
+			const token = encodeURIComponent(get(authStore).token ?? '');
+			es = new EventSource(`/api/runs/${run_id}/stream?token=${token}`);
+
+			es.onmessage = (e) => {
+				outputLines = [...outputLines, e.data];
+			};
+
+			es.addEventListener('done', () => {
+				es?.close(); es = null; running = false;
+				runsApi.get(run_id).then((r) => { if (r) runResult = r; });
+			});
+
+			es.onerror = () => {
+				es?.close(); es = null; running = false;
+				runsApi.get(run_id).then((r) => { if (r) runResult = r; });
+			};
 		} catch (err) {
 			error = err instanceof ApiError ? err.message : 'Failed to start run';
 			running = false;
 		}
 	}
 
+	async function cancelRun() {
+		if (!currentRunId) return;
+		try { await runsApi.cancel(currentRunId); } catch { /* ignore */ }
+	}
+
 	function statusClass(status: string) {
 		return { pending: 'badge-muted', running: 'badge-info', success: 'badge-success', failed: 'badge-danger' }[status] || 'badge-muted';
 	}
+
+	let liveOutputHtml = $derived(conv.toHtml(outputLines.join('\n')));
+	let finalOutputHtml = $derived(conv.toHtml(runResult?.output || ''));
 </script>
 
 <div class="page-header">
@@ -113,31 +133,38 @@
 		</div>
 
 		<div class="actions" style="justify-content:flex-end; margin-bottom:1.5rem">
+			{#if running && currentRunId}
+				<button type="button" class="btn btn-danger" onclick={cancelRun}>Cancel</button>
+			{/if}
 			<button type="submit" class="btn btn-primary" disabled={running}>
 				{running ? 'Running...' : '▶ Run Playbook'}
 			</button>
 		</div>
 	</form>
 
-	{#if runResult}
+	{#if running || runResult}
 		<div class="card">
 			<div class="run-header">
 				<h2>Run Output</h2>
 				<div class="run-meta">
-					<span class="badge {statusClass(runResult.status)}">{runResult.status}</span>
-					{#if runResult.started_at}
-						<span class="meta-text">Started: {new Date(runResult.started_at).toLocaleString()}</span>
+					{#if runResult}
+						<span class="badge {statusClass(runResult.status)}">{runResult.status}</span>
+						{#if runResult.started_at}
+							<span class="meta-text">Started: {new Date(runResult.started_at).toLocaleString()}</span>
+						{/if}
+						{#if runResult.finished_at}
+							<span class="meta-text">Finished: {new Date(runResult.finished_at).toLocaleString()}</span>
+						{/if}
+						<a href="/runs/{runResult.id}" class="btn btn-sm btn-secondary">View Full Run</a>
+					{:else}
+						<span class="badge badge-info">running</span>
+						<span class="streaming">● Live</span>
 					{/if}
-					{#if runResult.finished_at}
-						<span class="meta-text">Finished: {new Date(runResult.finished_at).toLocaleString()}</span>
-					{/if}
-					<a href="/runs/{runResult.id}" class="btn btn-sm btn-secondary">View Full Run</a>
 				</div>
 			</div>
-			{#if running}
-				<p class="polling-notice">Polling for output every 2 seconds...</p>
-			{/if}
-			<pre class="output">{runResult.output || 'Waiting for output...'}</pre>
+			<pre class="output">{@html running
+				? (liveOutputHtml || '<span class="muted-out">Waiting for output…</span>')
+				: (finalOutputHtml || '<span class="muted-out">No output.</span>')}</pre>
 		</div>
 	{/if}
 {/if}
@@ -149,6 +176,7 @@
 	.run-header h2 { margin-bottom: 0; }
 	.run-meta { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
 	.meta-text { font-size: 0.8rem; color: var(--text-muted); }
-	.polling-notice { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem; font-style: italic; }
+	.streaming { font-size: 0.8rem; color: var(--primary); font-weight: 600; }
 	.output { background: #0f172a; color: #e2e8f0; padding: 1.25rem; border-radius: var(--radius); font-size: 0.8rem; line-height: 1.6; overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 500px; overflow-y: auto; }
+	:global(.muted-out) { color: #64748b; font-style: italic; }
 </style>
