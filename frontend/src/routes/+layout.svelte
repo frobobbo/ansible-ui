@@ -307,4 +307,11 @@
 			padding-top: calc(52px + 1.25rem);
 		}
 	}
+
+	@media (max-width: 480px) {
+		.content {
+			padding: 0.75rem;
+			padding-top: calc(52px + 0.75rem);
+		}
+	}
 </style>

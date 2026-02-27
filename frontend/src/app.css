@@ -83,10 +83,11 @@ textarea.form-control { min-height: 80px; resize: vertical; font-family: monospa
 .table tr:last-child td { border-bottom: none; }
 .table tr:hover td { background: var(--bg); }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
 	.card { padding: 1rem; }
-	.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+	.table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 	.table th, .table td { padding: 0.5rem 0.75rem; white-space: nowrap; }
+	h1 { font-size: 1.25rem; }
 }
 
 .badge {
@@ -113,5 +114,5 @@ textarea.form-control { min-height: 80px; resize: vertical; font-family: monospa
 .empty-state { text-align: center; padding: 3rem; color: var(--text-muted); }
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-@media (max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
+@media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
 .hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; display: block; }

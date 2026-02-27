@@ -2,6 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/stores';
 	import { forms as formsApi, runs as runsApi, ApiError } from '$lib/api';
+	import { isEditor } from '$lib/stores';
 	import type { Form, FormField, Run } from '$lib/types';
 
 	let id = $derived($page.params.id);
@@ -68,7 +69,9 @@
 
 <div class="page-header">
 	<h1>Run: {form?.name ?? '...'}</h1>
-	<a href="/forms/{id}" class="btn btn-secondary">← Edit Form</a>
+	{#if $isEditor}
+		<a href="/forms/{id}" class="btn btn-secondary">← Edit Form</a>
+	{/if}
 </div>
 
 {#if loading}
