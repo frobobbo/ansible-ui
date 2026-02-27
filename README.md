@@ -7,9 +7,11 @@ A self-hosted web interface for running Ansible playbooks via SSH. Define forms 
 - **Role-based access** — Admin, Editor, and Viewer roles with granular permissions
 - **Quick Actions** — Pin frequently-used forms to the dashboard as one-click cards with optional custom images
 - **Form builder** — Create forms with text, number, boolean, and select fields that map to Ansible extra-vars
+- **Scheduled runs** — Attach a cron expression to any form; it runs automatically on schedule using field default values, surviving server restarts
 - **Vault support** — Store encrypted vault passwords; automatically passed as `--vault-password-file` at run time
 - **Live run output** — Stream stdout/stderr from `ansible-playbook` in real time
 - **Run history** — Browse past runs and replay them with a single click
+- **Responsive UI** — Mobile-friendly sidebar with hamburger navigation that collapses on small screens
 - **Single binary** — Go backend serves the pre-built SvelteKit frontend; no external runtime dependencies
 
 ## Roles
@@ -20,11 +22,33 @@ A self-hosted web interface for running Ansible playbooks via SSH. Define forms 
 | Editor | ✓         | ✓             | ✓     | ✓           | —                             |
 | Viewer | ✓         | ✓             | —     | —           | —                             |
 
+## Scheduling
+
+Any form can be set to run automatically on a cron schedule:
+
+1. Open a form in the editor and expand the **Scheduling** card.
+2. Enable **Run on a schedule** and enter a cron expression.
+3. Save — the next run time is shown immediately.
+
+Supported formats:
+
+| Expression | Meaning |
+|---|---|
+| `0 2 * * *` | Every day at 02:00 UTC |
+| `*/15 * * * *` | Every 15 minutes |
+| `0 9 * * 1` | Every Monday at 09:00 UTC |
+| `@hourly` | Once per hour |
+| `@daily` | Once per day at midnight UTC |
+| `@weekly` | Once per week on Sunday UTC |
+
+Scheduled runs use the **field default values** defined on the form. All times are UTC. Schedules are re-registered automatically when the server restarts.
+
 ## Tech Stack
 
 - **Backend**: Go + Gin, JWT (HS256), `modernc.org/sqlite` (no CGO required)
 - **Frontend**: SvelteKit 5 (runes) + TypeScript, built as a static SPA
 - **SSH**: `golang.org/x/crypto/ssh`
+- **Scheduler**: `github.com/robfig/cron/v3` — standard 5-field cron + `@hourly`/`@daily`/`@weekly` descriptors
 - **Database**: SQLite in WAL mode at `./data/ansible.db`
 
 ## Getting Started
@@ -150,6 +174,7 @@ ansible-frontend/
 │   │   ├── auth/      JWT + middleware
 │   │   ├── models/    Shared data types
 │   │   ├── runner/    ansible-playbook execution via SSH
+│   │   ├── scheduler/ Cron scheduler (robfig/cron/v3)
 │   │   └── store/     SQLite queries
 │   └── main.go
 ├── frontend/          SvelteKit 5 source
