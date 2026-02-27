@@ -11,10 +11,11 @@ import (
 
 type ServersHandler struct {
 	servers *store.ServerStore
+	audit   *store.AuditStore
 }
 
-func newServersHandler(servers *store.ServerStore) *ServersHandler {
-	return &ServersHandler{servers: servers}
+func newServersHandler(servers *store.ServerStore, audit *store.AuditStore) *ServersHandler {
+	return &ServersHandler{servers: servers, audit: audit}
 }
 
 func (h *ServersHandler) List(c *gin.Context) {
@@ -61,6 +62,8 @@ func (h *ServersHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	uid, uname := auditUser(c)
+	h.audit.Log(uid, uname, "create", "server", sv.ID, "", c.ClientIP())
 	c.JSON(http.StatusCreated, sv)
 }
 
@@ -88,14 +91,19 @@ func (h *ServersHandler) Update(c *gin.Context) {
 		return
 	}
 	sv.SSHPrivateKey = ""
+	uid, uname := auditUser(c)
+	h.audit.Log(uid, uname, "update", "server", id, "", c.ClientIP())
 	c.JSON(http.StatusOK, sv)
 }
 
 func (h *ServersHandler) Delete(c *gin.Context) {
-	if err := h.servers.Delete(c.Param("id")); err != nil {
+	id := c.Param("id")
+	if err := h.servers.Delete(id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	uid, uname := auditUser(c)
+	h.audit.Log(uid, uname, "delete", "server", id, "", c.ClientIP())
 	c.Status(http.StatusNoContent)
 }
 

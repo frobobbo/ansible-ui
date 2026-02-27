@@ -77,3 +77,15 @@ CREATE TABLE IF NOT EXISTS runs (
     started_at  DATETIME,
     finished_at DATETIME
 );
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id          TEXT PRIMARY KEY,
+    user_id     TEXT NOT NULL DEFAULT '',
+    username    TEXT NOT NULL DEFAULT '',
+    action      TEXT NOT NULL,
+    resource    TEXT NOT NULL,
+    resource_id TEXT NOT NULL DEFAULT '',
+    details     TEXT NOT NULL DEFAULT '{}',
+    ip          TEXT NOT NULL DEFAULT '',
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

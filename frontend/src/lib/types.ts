@@ -80,6 +80,18 @@ export interface Run {
 	finished_at: string | null;
 }
 
+export interface AuditLog {
+	id: string;
+	user_id: string;
+	username: string;
+	action: string;
+	resource: string;
+	resource_id: string;
+	details: string;
+	ip: string;
+	created_at: string;
+}
+
 export interface AuthResponse {
 	token: string;
 	user: User;

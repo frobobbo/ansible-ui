@@ -35,6 +35,7 @@ type RunsHandler struct {
 	servers   *store.ServerStore
 	playbooks *store.PlaybookStore
 	vaults    *store.VaultStore
+	audit     *store.AuditStore
 	jwtSvc    *auth.JWTService
 	liveRuns  sync.Map // string -> *liveRun
 }
@@ -45,6 +46,7 @@ func NewRunsHandler(
 	servers *store.ServerStore,
 	playbooks *store.PlaybookStore,
 	vaults *store.VaultStore,
+	audit *store.AuditStore,
 	jwtSvc *auth.JWTService,
 ) *RunsHandler {
 	return &RunsHandler{
@@ -53,6 +55,7 @@ func NewRunsHandler(
 		servers:   servers,
 		playbooks: playbooks,
 		vaults:    vaults,
+		audit:     audit,
 		jwtSvc:    jwtSvc,
 	}
 }
@@ -112,6 +115,8 @@ func (h *RunsHandler) Create(c *gin.Context) {
 
 	go h.executeRun(run.ID, form, req.Variables)
 
+	uid, uname := auditUser(c)
+	h.audit.Log(uid, uname, "create", "run", run.ID, "", c.ClientIP())
 	c.JSON(http.StatusAccepted, gin.H{"run_id": run.ID, "status": "pending"})
 }
 
@@ -412,6 +417,7 @@ func (h *RunsHandler) TriggerWebhook(c *gin.Context) {
 		return
 	}
 	go h.executeRun(run.ID, form, variables)
+	h.audit.Log("", "webhook", "trigger", "run", run.ID, "", c.ClientIP())
 	c.JSON(http.StatusAccepted, gin.H{"run_id": run.ID, "status": "pending"})
 }
 

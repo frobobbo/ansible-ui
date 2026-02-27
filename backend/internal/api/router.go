@@ -28,13 +28,15 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 	})
 
 	// Handlers
+	auditStore := db.Audit()
 	vaultStore := db.Vaults(jwtSecret)
 	authH := newAuthHandler(db.Users(), jwtSvc)
-	usersH := newUsersHandler(db.Users())
-	serversH := newServersHandler(db.Servers())
-	playbooksH := newPlaybooksHandler(db.Playbooks(), uploadDir)
-	formsH := newFormsHandler(db.Forms(), formImageDir, sched)
-	vaultsH := newVaultsHandler(vaultStore, vaultUploadDir)
+	auditH := newAuditHandler(auditStore)
+	usersH := newUsersHandler(db.Users(), auditStore)
+	serversH := newServersHandler(db.Servers(), auditStore)
+	playbooksH := newPlaybooksHandler(db.Playbooks(), auditStore, uploadDir)
+	formsH := newFormsHandler(db.Forms(), auditStore, formImageDir, sched)
+	vaultsH := newVaultsHandler(vaultStore, auditStore, vaultUploadDir)
 
 	// Health check — no auth required
 	r.GET("/healthz", func(c *gin.Context) {
@@ -99,6 +101,9 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 			protected.GET("/runs/:id", runsH.Get)
 			protected.POST("/runs", runsH.Create)
 			protected.POST("/runs/:id/cancel", runsH.Cancel)
+
+			// Audit log (admin only)
+			protected.GET("/audit", auth.RequireAdmin, auditH.List)
 		}
 	}
 

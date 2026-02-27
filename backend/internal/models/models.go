@@ -68,6 +68,18 @@ type Form struct {
 	UpdatedAt     time.Time   `json:"updated_at" db:"updated_at"`
 }
 
+type AuditLog struct {
+	ID         string    `json:"id"`
+	UserID     string    `json:"user_id"`
+	Username   string    `json:"username"`
+	Action     string    `json:"action"`
+	Resource   string    `json:"resource"`
+	ResourceID string    `json:"resource_id"`
+	Details    string    `json:"details"`
+	IP         string    `json:"ip"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
 type Run struct {
 	ID         string     `json:"id" db:"id"`
 	FormID     *string    `json:"form_id" db:"form_id"`

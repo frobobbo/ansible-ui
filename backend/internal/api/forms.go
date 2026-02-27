@@ -17,12 +17,13 @@ import (
 
 type FormsHandler struct {
 	forms    *store.FormStore
+	audit    *store.AuditStore
 	imageDir string
 	sched    *scheduler.Scheduler
 }
 
-func newFormsHandler(forms *store.FormStore, imageDir string, sched *scheduler.Scheduler) *FormsHandler {
-	return &FormsHandler{forms: forms, imageDir: imageDir, sched: sched}
+func newFormsHandler(forms *store.FormStore, audit *store.AuditStore, imageDir string, sched *scheduler.Scheduler) *FormsHandler {
+	return &FormsHandler{forms: forms, audit: audit, imageDir: imageDir, sched: sched}
 }
 
 // formResponse wraps a Form and adds the computed next_run_at field.
@@ -226,6 +227,8 @@ func (h *FormsHandler) Create(c *gin.Context) {
 		h.sched.Upsert(f)
 	}
 
+	uid, uname := auditUser(c)
+	h.audit.Log(uid, uname, "create", "form", f.ID, "", c.ClientIP())
 	c.JSON(http.StatusCreated, h.withNextRun(f))
 }
 
@@ -257,6 +260,8 @@ func (h *FormsHandler) Update(c *gin.Context) {
 		h.sched.Upsert(f)
 	}
 
+	uid, uname := auditUser(c)
+	h.audit.Log(uid, uname, "update", "form", id, "", c.ClientIP())
 	c.JSON(http.StatusOK, h.withNextRun(f))
 }
 
@@ -275,5 +280,7 @@ func (h *FormsHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	uid, uname := auditUser(c)
+	h.audit.Log(uid, uname, "delete", "form", id, "", c.ClientIP())
 	c.Status(http.StatusNoContent)
 }

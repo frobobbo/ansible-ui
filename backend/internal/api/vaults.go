@@ -12,11 +12,12 @@ import (
 
 type VaultsHandler struct {
 	vaults    *store.VaultStore
+	audit     *store.AuditStore
 	uploadDir string
 }
 
-func newVaultsHandler(vaults *store.VaultStore, uploadDir string) *VaultsHandler {
-	return &VaultsHandler{vaults: vaults, uploadDir: uploadDir}
+func newVaultsHandler(vaults *store.VaultStore, audit *store.AuditStore, uploadDir string) *VaultsHandler {
+	return &VaultsHandler{vaults: vaults, audit: audit, uploadDir: uploadDir}
 }
 
 func (h *VaultsHandler) List(c *gin.Context) {
@@ -56,6 +57,8 @@ func (h *VaultsHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	uid, uname := auditUser(c)
+	h.audit.Log(uid, uname, "create", "vault", v.ID, "", c.ClientIP())
 	c.JSON(http.StatusCreated, v)
 }
 
@@ -76,19 +79,24 @@ func (h *VaultsHandler) Update(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "vault not found"})
 		return
 	}
+	uid, uname := auditUser(c)
+	h.audit.Log(uid, uname, "update", "vault", id, "", c.ClientIP())
 	c.JSON(http.StatusOK, v)
 }
 
 func (h *VaultsHandler) Delete(c *gin.Context) {
+	id := c.Param("id")
 	// Clean up vault file if one exists
-	oldPath, _ := h.vaults.ClearVaultFile(c.Param("id"))
+	oldPath, _ := h.vaults.ClearVaultFile(id)
 	if oldPath != "" {
 		os.Remove(oldPath)
 	}
-	if err := h.vaults.Delete(c.Param("id")); err != nil {
+	if err := h.vaults.Delete(id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	uid, uname := auditUser(c)
+	h.audit.Log(uid, uname, "delete", "vault", id, "", c.ClientIP())
 	c.Status(http.StatusNoContent)
 }
 

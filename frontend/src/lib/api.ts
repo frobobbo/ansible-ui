@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import { authStore } from './stores';
-import type { AuthResponse, Form, FormField, Playbook, Run, Server, User, Vault } from './types';
+import type { AuditLog, AuthResponse, Form, FormField, Playbook, Run, Server, User, Vault } from './types';
 
 export class ApiError extends Error {
 	constructor(public status: number, message: string) {
@@ -141,6 +141,22 @@ export const vaults = {
 		return request<Vault>(`/vaults/${id}/upload`, { method: 'POST', body: fd });
 	},
 	deleteFile: (id: string) => request<Vault>(`/vaults/${id}/file`, { method: 'DELETE' }),
+};
+
+export const audit = {
+	list: (params?: { limit?: number; offset?: number }) => {
+		const qs = params
+			? '?' +
+				new URLSearchParams(
+					Object.fromEntries(
+						Object.entries(params)
+							.filter(([, v]) => v !== undefined)
+							.map(([k, v]) => [k, String(v)])
+					)
+				).toString()
+			: '';
+		return requestPaged<AuditLog[]>(`/audit${qs}`);
+	},
 };
 
 export const runs = {

@@ -109,6 +109,7 @@ func (db *DB) Servers() *ServerStore     { return &ServerStore{db: db.conn} }
 func (db *DB) Playbooks() *PlaybookStore { return &PlaybookStore{db: db.conn} }
 func (db *DB) Forms() *FormStore         { return &FormStore{db: db.conn} }
 func (db *DB) Runs() *RunStore           { return &RunStore{db: db.conn} }
+func (db *DB) Audit() *AuditStore        { return &AuditStore{db: db.conn} }
 func (db *DB) Vaults(secret string) *VaultStore {
 	return newVaultStore(db.conn, secret)
 }

@@ -13,11 +13,12 @@ import (
 
 type PlaybooksHandler struct {
 	playbooks *store.PlaybookStore
+	audit     *store.AuditStore
 	uploadDir string
 }
 
-func newPlaybooksHandler(playbooks *store.PlaybookStore, uploadDir string) *PlaybooksHandler {
-	return &PlaybooksHandler{playbooks: playbooks, uploadDir: uploadDir}
+func newPlaybooksHandler(playbooks *store.PlaybookStore, audit *store.AuditStore, uploadDir string) *PlaybooksHandler {
+	return &PlaybooksHandler{playbooks: playbooks, audit: audit, uploadDir: uploadDir}
 }
 
 func (h *PlaybooksHandler) List(c *gin.Context) {
@@ -70,11 +71,14 @@ func (h *PlaybooksHandler) Upload(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	uid, uname := auditUser(c)
+	h.audit.Log(uid, uname, "upload", "playbook", p.ID, "", c.ClientIP())
 	c.JSON(http.StatusCreated, p)
 }
 
 func (h *PlaybooksHandler) Delete(c *gin.Context) {
-	filePath, err := h.playbooks.Delete(c.Param("id"))
+	id := c.Param("id")
+	filePath, err := h.playbooks.Delete(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -82,5 +86,7 @@ func (h *PlaybooksHandler) Delete(c *gin.Context) {
 	if filePath != "" {
 		os.Remove(filePath)
 	}
+	uid, uname := auditUser(c)
+	h.audit.Log(uid, uname, "delete", "playbook", id, "", c.ClientIP())
 	c.Status(http.StatusNoContent)
 }
