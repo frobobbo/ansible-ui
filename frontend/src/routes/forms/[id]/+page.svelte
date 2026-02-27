@@ -9,7 +9,8 @@
 	let serverList = $state<Server[]>([]);
 	let playbookList = $state<Playbook[]>([]);
 	let vaultList = $state<Vault[]>([]);
-	let formData = $state({ name: '', description: '', server_id: '', playbook_id: '', vault_id: '', is_quick_action: false });
+	let formData = $state({ name: '', description: '', server_id: '', playbook_id: '', vault_id: '', is_quick_action: false, schedule_cron: '', schedule_enabled: false });
+	let nextRunAt = $state<string | null>(null);
 	let imageName = $state('');
 	let imageUploading = $state(false);
 	let fields = $state<Partial<FormField>[]>([]);
@@ -28,7 +29,8 @@
 		playbookList = pbList;
 		vaultList = vList;
 		if (form) {
-			formData = { name: form.name, description: form.description, server_id: form.server_id, playbook_id: form.playbook_id, vault_id: form.vault_id ?? '', is_quick_action: form.is_quick_action };
+			formData = { name: form.name, description: form.description, server_id: form.server_id, playbook_id: form.playbook_id, vault_id: form.vault_id ?? '', is_quick_action: form.is_quick_action, schedule_cron: form.schedule_cron ?? '', schedule_enabled: form.schedule_enabled ?? false };
+			nextRunAt = form.next_run_at ?? null;
 			imageName = form.image_name;
 			fields = form.fields || [];
 		}
@@ -210,6 +212,28 @@
 					<button type="button" class="btn btn-sm btn-danger field-remove" onclick={() => removeField(i)}>✕</button>
 				</div>
 			{/each}
+		</div>
+
+		<div class="card">
+			<h2>Scheduling</h2>
+			<div class="form-group">
+				<label class="checkbox-label">
+					<input type="checkbox" bind:checked={formData.schedule_enabled} />
+					Run on a schedule
+				</label>
+				<small class="hint">Runs automatically using field default values. Times are UTC.</small>
+			</div>
+			{#if formData.schedule_enabled}
+				<div class="form-group">
+					<label for="sched_cron">Cron Expression</label>
+					<input id="sched_cron" class="form-control" bind:value={formData.schedule_cron}
+						placeholder="0 2 * * *" required={formData.schedule_enabled} />
+					<small class="hint">5-field cron (min hr dom mon dow) or @hourly · @daily · @weekly</small>
+					{#if nextRunAt}
+						<small class="hint">Next run: {new Date(nextRunAt).toLocaleString()} UTC</small>
+					{/if}
+				</div>
+			{/if}
 		</div>
 
 		<div class="actions" style="justify-content:flex-end">

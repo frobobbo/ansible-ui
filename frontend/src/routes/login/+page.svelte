@@ -26,30 +26,56 @@
 
 <div class="login-page">
 	<div class="login-card">
-		<h1>Ansible UI</h1>
-		<p class="subtitle">Sign in to manage your playbooks</p>
-		{#if error}
-			<div class="alert alert-error">{error}</div>
-		{/if}
-		<form onsubmit={handleLogin}>
-			<div class="form-group">
-				<label for="username">Username</label>
-				<input id="username" class="form-control" type="text" bind:value={username} required autocomplete="username" />
-			</div>
-			<div class="form-group">
-				<label for="password">Password</label>
-				<input id="password" class="form-control" type="password" bind:value={password} required autocomplete="current-password" />
-			</div>
-			<button class="btn btn-primary" type="submit" disabled={loading} style="width:100%">
-				{loading ? 'Signing in...' : 'Sign In'}
-			</button>
-		</form>
+		<div class="login-brand">
+			<svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+				<polygon points="5,3 19,12 5,21"/>
+			</svg>
+			<h1>Ansible UI</h1>
+			<p class="subtitle">Sign in to manage your playbooks</p>
+		</div>
+		<div class="login-body">
+			{#if error}
+				<div class="alert alert-error">{error}</div>
+			{/if}
+			<form onsubmit={handleLogin}>
+				<div class="form-group">
+					<label for="username">Username</label>
+					<input id="username" class="form-control" type="text" bind:value={username} required autocomplete="username" />
+				</div>
+				<div class="form-group">
+					<label for="password">Password</label>
+					<input id="password" class="form-control" type="password" bind:value={password} required autocomplete="current-password" />
+				</div>
+				<button class="btn btn-primary" type="submit" disabled={loading} style="width:100%">
+					{loading ? 'Signing in…' : 'Sign In'}
+				</button>
+			</form>
+		</div>
 	</div>
 </div>
 
 <style>
-	.login-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--sidebar-bg); }
-	.login-card { background: white; border-radius: 12px; padding: 2.5rem; width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
-	h1 { font-size: 1.75rem; font-weight: 700; text-align: center; margin-bottom: 0.5rem; }
-	.subtitle { text-align: center; color: var(--text-muted); margin-bottom: 2rem; font-size: 0.875rem; }
+	.login-page {
+		min-height: 100vh;
+		display: flex; align-items: center; justify-content: center;
+		background: var(--sidebar-bg);
+		padding: 1rem;
+	}
+	.login-card {
+		background: white;
+		border-radius: 12px;
+		width: 100%; max-width: 380px;
+		box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+		overflow: hidden;
+	}
+	.login-brand {
+		background: linear-gradient(135deg, #5636d1 0%, #e2498a 100%);
+		padding: 2rem 2.5rem 1.75rem;
+		text-align: center;
+		display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+	}
+	.brand-icon { width: 36px; height: 36px; color: rgba(255,255,255,0.9); }
+	h1 { font-size: 1.75rem; font-weight: 700; color: white; margin: 0; }
+	.subtitle { color: rgba(255,255,255,0.75); font-size: 0.875rem; margin: 0; }
+	.login-body { padding: 1.75rem 2rem 2rem; }
 </style>

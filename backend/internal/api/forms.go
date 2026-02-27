@@ -5,8 +5,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/brettjrea/ansible-frontend/internal/models"
+	"github.com/brettjrea/ansible-frontend/internal/scheduler"
 	"github.com/brettjrea/ansible-frontend/internal/store"
 	"github.com/gin-gonic/gin"
 )
@@ -14,10 +16,25 @@ import (
 type FormsHandler struct {
 	forms    *store.FormStore
 	imageDir string
+	sched    *scheduler.Scheduler
 }
 
-func newFormsHandler(forms *store.FormStore, imageDir string) *FormsHandler {
-	return &FormsHandler{forms: forms, imageDir: imageDir}
+func newFormsHandler(forms *store.FormStore, imageDir string, sched *scheduler.Scheduler) *FormsHandler {
+	return &FormsHandler{forms: forms, imageDir: imageDir, sched: sched}
+}
+
+// formResponse wraps a Form and adds the computed next_run_at field.
+type formResponse struct {
+	*models.Form
+	NextRunAt *time.Time `json:"next_run_at"`
+}
+
+func (h *FormsHandler) withNextRun(f *models.Form) formResponse {
+	var next *time.Time
+	if h.sched != nil {
+		next = h.sched.NextRunAt(f.ID)
+	}
+	return formResponse{Form: f, NextRunAt: next}
 }
 
 func (h *FormsHandler) List(c *gin.Context) {
@@ -29,7 +46,11 @@ func (h *FormsHandler) List(c *gin.Context) {
 	if list == nil {
 		list = []*models.Form{}
 	}
-	c.JSON(http.StatusOK, list)
+	resp := make([]formResponse, len(list))
+	for i, f := range list {
+		resp[i] = h.withNextRun(f)
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 func (h *FormsHandler) GetQuickActions(c *gin.Context) {
@@ -41,7 +62,11 @@ func (h *FormsHandler) GetQuickActions(c *gin.Context) {
 	if list == nil {
 		list = []*models.Form{}
 	}
-	c.JSON(http.StatusOK, list)
+	resp := make([]formResponse, len(list))
+	for i, f := range list {
+		resp[i] = h.withNextRun(f)
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 func (h *FormsHandler) Get(c *gin.Context) {
@@ -50,7 +75,7 @@ func (h *FormsHandler) Get(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "form not found"})
 		return
 	}
-	c.JSON(http.StatusOK, f)
+	c.JSON(http.StatusOK, h.withNextRun(f))
 }
 
 func (h *FormsHandler) GetFields(c *gin.Context) {
@@ -113,7 +138,7 @@ func (h *FormsHandler) UploadImage(c *gin.Context) {
 	}
 
 	f, _ = h.forms.Get(id)
-	c.JSON(http.StatusOK, f)
+	c.JSON(http.StatusOK, h.withNextRun(f))
 }
 
 func (h *FormsHandler) DeleteImage(c *gin.Context) {
@@ -127,17 +152,19 @@ func (h *FormsHandler) DeleteImage(c *gin.Context) {
 		os.Remove(oldPath)
 	}
 	f, _ := h.forms.Get(id)
-	c.JSON(http.StatusOK, f)
+	c.JSON(http.StatusOK, h.withNextRun(f))
 }
 
 type formRequest struct {
-	Name          string             `json:"name" binding:"required"`
-	Description   string             `json:"description"`
-	PlaybookID    string             `json:"playbook_id" binding:"required"`
-	ServerID      string             `json:"server_id" binding:"required"`
-	VaultID       *string            `json:"vault_id"`
-	IsQuickAction bool               `json:"is_quick_action"`
-	Fields        []models.FormField `json:"fields"`
+	Name            string             `json:"name" binding:"required"`
+	Description     string             `json:"description"`
+	PlaybookID      string             `json:"playbook_id" binding:"required"`
+	ServerID        string             `json:"server_id" binding:"required"`
+	VaultID         *string            `json:"vault_id"`
+	IsQuickAction   bool               `json:"is_quick_action"`
+	ScheduleCron    string             `json:"schedule_cron"`
+	ScheduleEnabled bool               `json:"schedule_enabled"`
+	Fields          []models.FormField `json:"fields"`
 }
 
 func (h *FormsHandler) Create(c *gin.Context) {
@@ -147,17 +174,27 @@ func (h *FormsHandler) Create(c *gin.Context) {
 		return
 	}
 
+	if err := scheduler.ValidateCron(req.ScheduleCron); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid cron expression: " + err.Error()})
+		return
+	}
+
 	vaultID := req.VaultID
 	if vaultID != nil && *vaultID == "" {
 		vaultID = nil
 	}
 
-	f, err := h.forms.Create(req.Name, req.Description, req.PlaybookID, req.ServerID, vaultID, req.IsQuickAction, req.Fields)
+	f, err := h.forms.Create(req.Name, req.Description, req.PlaybookID, req.ServerID, vaultID, req.IsQuickAction, req.ScheduleCron, req.ScheduleEnabled, req.Fields)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, f)
+
+	if h.sched != nil {
+		h.sched.Upsert(f)
+	}
+
+	c.JSON(http.StatusCreated, h.withNextRun(f))
 }
 
 func (h *FormsHandler) Update(c *gin.Context) {
@@ -168,25 +205,41 @@ func (h *FormsHandler) Update(c *gin.Context) {
 		return
 	}
 
+	if err := scheduler.ValidateCron(req.ScheduleCron); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid cron expression: " + err.Error()})
+		return
+	}
+
 	vaultID := req.VaultID
 	if vaultID != nil && *vaultID == "" {
 		vaultID = nil
 	}
 
-	f, err := h.forms.Update(id, req.Name, req.Description, req.PlaybookID, req.ServerID, vaultID, req.IsQuickAction, req.Fields)
+	f, err := h.forms.Update(id, req.Name, req.Description, req.PlaybookID, req.ServerID, vaultID, req.IsQuickAction, req.ScheduleCron, req.ScheduleEnabled, req.Fields)
 	if err != nil || f == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "form not found"})
 		return
 	}
-	c.JSON(http.StatusOK, f)
+
+	if h.sched != nil {
+		h.sched.Upsert(f)
+	}
+
+	c.JSON(http.StatusOK, h.withNextRun(f))
 }
 
 func (h *FormsHandler) Delete(c *gin.Context) {
+	id := c.Param("id")
+
+	if h.sched != nil {
+		h.sched.Remove(id)
+	}
+
 	// Clean up image file if present
-	if oldPath, err := h.forms.ClearImage(c.Param("id")); err == nil && oldPath != "" {
+	if oldPath, err := h.forms.ClearImage(id); err == nil && oldPath != "" {
 		os.Remove(oldPath)
 	}
-	if err := h.forms.Delete(c.Param("id")); err != nil {
+	if err := h.forms.Delete(id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

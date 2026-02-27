@@ -42,10 +42,12 @@ CREATE TABLE IF NOT EXISTS forms (
     playbook_id     TEXT NOT NULL REFERENCES playbooks(id) ON DELETE CASCADE,
     server_id       TEXT NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
     vault_id        TEXT REFERENCES vaults(id) ON DELETE SET NULL,
-    is_quick_action INTEGER NOT NULL DEFAULT 0,
-    image_path      TEXT NOT NULL DEFAULT '',
-    image_name      TEXT NOT NULL DEFAULT '',
-    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_quick_action  INTEGER NOT NULL DEFAULT 0,
+    image_path       TEXT NOT NULL DEFAULT '',
+    image_name       TEXT NOT NULL DEFAULT '',
+    schedule_cron    TEXT NOT NULL DEFAULT '',
+    schedule_enabled INTEGER NOT NULL DEFAULT 0,
+    created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -13,18 +13,20 @@ type FormStore struct {
 	db *sql.DB
 }
 
-const formSelect = "SELECT id, name, description, playbook_id, server_id, vault_id, is_quick_action, image_name, created_at, updated_at FROM forms"
+const formSelect = "SELECT id, name, description, playbook_id, server_id, vault_id, is_quick_action, image_name, schedule_cron, schedule_enabled, created_at, updated_at FROM forms"
 
 func scanForm(row interface {
 	Scan(...any) error
 }) (*models.Form, error) {
 	f := &models.Form{}
 	var isQuickAction int
-	err := row.Scan(&f.ID, &f.Name, &f.Description, &f.PlaybookID, &f.ServerID, &f.VaultID, &isQuickAction, &f.ImageName, &f.CreatedAt, &f.UpdatedAt)
+	var scheduleEnabled int
+	err := row.Scan(&f.ID, &f.Name, &f.Description, &f.PlaybookID, &f.ServerID, &f.VaultID, &isQuickAction, &f.ImageName, &f.ScheduleCron, &scheduleEnabled, &f.CreatedAt, &f.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
 	f.IsQuickAction = isQuickAction == 1
+	f.ScheduleEnabled = scheduleEnabled == 1
 	return f, nil
 }
 
@@ -104,7 +106,7 @@ func (s *FormStore) GetFields(formID string) ([]models.FormField, error) {
 	return fields, rows.Err()
 }
 
-func (s *FormStore) Create(name, description, playbookID, serverID string, vaultID *string, isQuickAction bool, fields []models.FormField) (*models.Form, error) {
+func (s *FormStore) Create(name, description, playbookID, serverID string, vaultID *string, isQuickAction bool, scheduleCron string, scheduleEnabled bool, fields []models.FormField) (*models.Form, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
@@ -113,20 +115,22 @@ func (s *FormStore) Create(name, description, playbookID, serverID string, vault
 
 	now := time.Now()
 	f := &models.Form{
-		ID:            uuid.New().String(),
-		Name:          name,
-		Description:   description,
-		PlaybookID:    playbookID,
-		ServerID:      serverID,
-		VaultID:       vaultID,
-		IsQuickAction: isQuickAction,
-		CreatedAt:     now,
-		UpdatedAt:     now,
+		ID:              uuid.New().String(),
+		Name:            name,
+		Description:     description,
+		PlaybookID:      playbookID,
+		ServerID:        serverID,
+		VaultID:         vaultID,
+		IsQuickAction:   isQuickAction,
+		ScheduleCron:    scheduleCron,
+		ScheduleEnabled: scheduleEnabled,
+		CreatedAt:       now,
+		UpdatedAt:       now,
 	}
 
 	_, err = tx.Exec(
-		"INSERT INTO forms (id, name, description, playbook_id, server_id, vault_id, is_quick_action, image_path, image_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, '', '', ?, ?)",
-		f.ID, f.Name, f.Description, f.PlaybookID, f.ServerID, f.VaultID, boolToInt(f.IsQuickAction), f.CreatedAt, f.UpdatedAt,
+		"INSERT INTO forms (id, name, description, playbook_id, server_id, vault_id, is_quick_action, image_path, image_name, schedule_cron, schedule_enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, '', '', ?, ?, ?, ?)",
+		f.ID, f.Name, f.Description, f.PlaybookID, f.ServerID, f.VaultID, boolToInt(f.IsQuickAction), f.ScheduleCron, boolToInt(f.ScheduleEnabled), f.CreatedAt, f.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -149,7 +153,7 @@ func (s *FormStore) Create(name, description, playbookID, serverID string, vault
 	return f, tx.Commit()
 }
 
-func (s *FormStore) Update(id, name, description, playbookID, serverID string, vaultID *string, isQuickAction bool, fields []models.FormField) (*models.Form, error) {
+func (s *FormStore) Update(id, name, description, playbookID, serverID string, vaultID *string, isQuickAction bool, scheduleCron string, scheduleEnabled bool, fields []models.FormField) (*models.Form, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
@@ -157,8 +161,8 @@ func (s *FormStore) Update(id, name, description, playbookID, serverID string, v
 	defer tx.Rollback()
 
 	_, err = tx.Exec(
-		"UPDATE forms SET name=?, description=?, playbook_id=?, server_id=?, vault_id=?, is_quick_action=?, updated_at=? WHERE id=?",
-		name, description, playbookID, serverID, vaultID, boolToInt(isQuickAction), time.Now(), id,
+		"UPDATE forms SET name=?, description=?, playbook_id=?, server_id=?, vault_id=?, is_quick_action=?, schedule_cron=?, schedule_enabled=?, updated_at=? WHERE id=?",
+		name, description, playbookID, serverID, vaultID, boolToInt(isQuickAction), scheduleCron, boolToInt(scheduleEnabled), time.Now(), id,
 	)
 	if err != nil {
 		return nil, err
@@ -190,6 +194,30 @@ func (s *FormStore) Update(id, name, description, playbookID, serverID string, v
 func (s *FormStore) Delete(id string) error {
 	_, err := s.db.Exec("DELETE FROM forms WHERE id = ?", id)
 	return err
+}
+
+// ListScheduled returns all forms that have a schedule enabled, with their
+// fields populated (so the scheduler can build default variables on startup).
+func (s *FormStore) ListScheduled() ([]*models.Form, error) {
+	rows, err := s.db.Query(formSelect + " WHERE schedule_enabled = 1 AND schedule_cron != '' ORDER BY name")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var forms []*models.Form
+	for rows.Next() {
+		f, err := scanForm(rows)
+		if err != nil {
+			return nil, err
+		}
+		f.Fields, err = s.GetFields(f.ID)
+		if err != nil {
+			return nil, err
+		}
+		forms = append(forms, f)
+	}
+	return forms, rows.Err()
 }
 
 // SetImage stores the local image path and original filename for a form.

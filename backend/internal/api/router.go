@@ -7,11 +7,12 @@ import (
 	"strings"
 
 	"github.com/brettjrea/ansible-frontend/internal/auth"
+	"github.com/brettjrea/ansible-frontend/internal/scheduler"
 	"github.com/brettjrea/ansible-frontend/internal/store"
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUploadDir string, formImageDir string, jwtSecret string) *gin.Engine {
+func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUploadDir string, formImageDir string, jwtSecret string, runsH *RunsHandler, sched *scheduler.Scheduler) *gin.Engine {
 	r := gin.Default()
 
 	// CORS middleware
@@ -32,9 +33,8 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 	usersH := newUsersHandler(db.Users())
 	serversH := newServersHandler(db.Servers())
 	playbooksH := newPlaybooksHandler(db.Playbooks(), uploadDir)
-	formsH := newFormsHandler(db.Forms(), formImageDir)
+	formsH := newFormsHandler(db.Forms(), formImageDir, sched)
 	vaultsH := newVaultsHandler(vaultStore, vaultUploadDir)
-	runsH := newRunsHandler(db.Runs(), db.Forms(), db.Servers(), db.Playbooks(), vaultStore, jwtSvc)
 
 	// API routes
 	api := r.Group("/api")

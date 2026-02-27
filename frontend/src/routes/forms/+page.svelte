@@ -54,12 +54,20 @@
 {:else}
 	<div class="card" style="padding:0">
 		<table class="table">
-			<thead><tr><th>Name</th><th>Description</th><th>Updated</th><th>Actions</th></tr></thead>
+			<thead><tr><th>Name</th><th>Description</th><th>Schedule</th><th>Updated</th><th>Actions</th></tr></thead>
 			<tbody>
 				{#each filtered as f}
 					<tr>
 						<td><strong>{f.name}</strong></td>
 						<td>{f.description || '—'}</td>
+						<td>
+							{#if f.schedule_enabled && f.schedule_cron}
+								<code class="sched-badge">{f.schedule_cron}</code>
+								{#if f.next_run_at}
+									<br /><small class="muted">next: {new Date(f.next_run_at).toLocaleString()}</small>
+								{/if}
+							{:else}—{/if}
+						</td>
 						<td>{new Date(f.updated_at).toLocaleDateString()}</td>
 						<td>
 							<div class="actions">
@@ -78,4 +86,6 @@
 <style>
 	.header-right { display: flex; gap: 0.75rem; align-items: center; }
 	.search { width: 220px; }
+	.sched-badge { background: #ede9fe; color: #5b21b6; border-radius: 4px; padding: 0.1rem 0.4rem; font-size: 0.78rem; }
+	.muted { color: var(--text-muted, #64748b); font-size: 0.75rem; }
 </style>

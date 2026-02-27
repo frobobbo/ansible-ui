@@ -56,9 +56,11 @@ type Form struct {
 	PlaybookID    string      `json:"playbook_id" db:"playbook_id"`
 	ServerID      string      `json:"server_id" db:"server_id"`
 	VaultID       *string     `json:"vault_id" db:"vault_id"`
-	IsQuickAction bool        `json:"is_quick_action" db:"is_quick_action"`
-	ImageName     string      `json:"image_name" db:"image_name"`
-	Fields        []FormField `json:"fields,omitempty" db:"-"`
+	IsQuickAction   bool        `json:"is_quick_action" db:"is_quick_action"`
+	ImageName       string      `json:"image_name" db:"image_name"`
+	ScheduleCron    string      `json:"schedule_cron" db:"schedule_cron"`
+	ScheduleEnabled bool        `json:"schedule_enabled" db:"schedule_enabled"`
+	Fields          []FormField `json:"fields,omitempty" db:"-"`
 	CreatedAt     time.Time   `json:"created_at" db:"created_at"`
 	UpdatedAt     time.Time   `json:"updated_at" db:"updated_at"`
 }

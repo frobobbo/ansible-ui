@@ -6,6 +6,7 @@ import (
 
 	"github.com/brettjrea/ansible-frontend/internal/api"
 	"github.com/brettjrea/ansible-frontend/internal/auth"
+	"github.com/brettjrea/ansible-frontend/internal/scheduler"
 	"github.com/brettjrea/ansible-frontend/internal/store"
 )
 
@@ -37,8 +38,21 @@ func main() {
 	}
 	jwtSvc := auth.NewJWTService(jwtSecret)
 
+	// Runs handler + scheduler (created before NewRouter to avoid circular deps)
+	vaultStoreForRuns := db.Vaults(jwtSecret)
+	runsH := api.NewRunsHandler(db.Runs(), db.Forms(), db.Servers(), db.Playbooks(), vaultStoreForRuns, jwtSvc)
+
+	sched := scheduler.New(runsH.TriggerScheduledRun)
+	defer sched.Stop()
+
+	if forms, err := db.Forms().ListScheduled(); err == nil {
+		for _, f := range forms {
+			sched.Upsert(f)
+		}
+	}
+
 	// Router
-	router := api.NewRouter(db, jwtSvc, "./data/playbooks", "./data/vaults", "./data/form-images", jwtSecret)
+	router := api.NewRouter(db, jwtSvc, "./data/playbooks", "./data/vaults", "./data/form-images", jwtSecret, runsH, sched)
 
 	port := os.Getenv("PORT")
 	if port == "" {

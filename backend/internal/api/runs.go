@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -36,7 +37,7 @@ type RunsHandler struct {
 	liveRuns  sync.Map // string -> *liveRun
 }
 
-func newRunsHandler(
+func NewRunsHandler(
 	runs *store.RunStore,
 	forms *store.FormStore,
 	servers *store.ServerStore,
@@ -351,4 +352,17 @@ func (h *RunsHandler) executeRun(runID string, form *models.Form, variables map[
 
 	h.runs.Finish(runID, status, fullOutput)
 	h.finishLiveRun(runID, status)
+}
+
+// TriggerScheduledRun is the callback invoked by the scheduler on each cron tick.
+// It creates a run record and launches executeRun in a goroutine.
+func (h *RunsHandler) TriggerScheduledRun(form *models.Form, variables map[string]interface{}) {
+	varJSON, _ := json.Marshal(variables)
+	fid := form.ID
+	run, err := h.runs.Create(&fid, form.PlaybookID, form.ServerID, string(varJSON))
+	if err != nil {
+		log.Printf("[scheduler] failed to create run for form %s: %v", form.ID, err)
+		return
+	}
+	go h.executeRun(run.ID, form, variables)
 }

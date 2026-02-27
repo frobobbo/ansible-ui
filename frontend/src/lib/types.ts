@@ -57,6 +57,9 @@ export interface Form {
 	vault_id?: string | null;
 	is_quick_action: boolean;
 	image_name: string;
+	schedule_cron: string;
+	schedule_enabled: boolean;
+	next_run_at?: string | null;
 	fields?: FormField[];
 	created_at: string;
 	updated_at: string;
