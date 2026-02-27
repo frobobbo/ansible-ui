@@ -60,6 +60,9 @@ type Form struct {
 	ImageName       string      `json:"image_name" db:"image_name"`
 	ScheduleCron    string      `json:"schedule_cron" db:"schedule_cron"`
 	ScheduleEnabled bool        `json:"schedule_enabled" db:"schedule_enabled"`
+	WebhookToken    string      `json:"webhook_token" db:"webhook_token"`
+	NotifyWebhook   string      `json:"notify_webhook" db:"notify_webhook"`
+	NotifyEmail     string      `json:"notify_email" db:"notify_email"`
 	Fields          []FormField `json:"fields,omitempty" db:"-"`
 	CreatedAt     time.Time   `json:"created_at" db:"created_at"`
 	UpdatedAt     time.Time   `json:"updated_at" db:"updated_at"`

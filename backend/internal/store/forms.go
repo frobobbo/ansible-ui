@@ -13,7 +13,7 @@ type FormStore struct {
 	db *sql.DB
 }
 
-const formSelect = "SELECT id, name, description, playbook_id, server_id, vault_id, is_quick_action, image_name, schedule_cron, schedule_enabled, created_at, updated_at FROM forms"
+const formSelect = "SELECT id, name, description, playbook_id, server_id, vault_id, is_quick_action, image_name, schedule_cron, schedule_enabled, webhook_token, notify_webhook, notify_email, created_at, updated_at FROM forms"
 
 func scanForm(row interface {
 	Scan(...any) error
@@ -21,7 +21,7 @@ func scanForm(row interface {
 	f := &models.Form{}
 	var isQuickAction int
 	var scheduleEnabled int
-	err := row.Scan(&f.ID, &f.Name, &f.Description, &f.PlaybookID, &f.ServerID, &f.VaultID, &isQuickAction, &f.ImageName, &f.ScheduleCron, &scheduleEnabled, &f.CreatedAt, &f.UpdatedAt)
+	err := row.Scan(&f.ID, &f.Name, &f.Description, &f.PlaybookID, &f.ServerID, &f.VaultID, &isQuickAction, &f.ImageName, &f.ScheduleCron, &scheduleEnabled, &f.WebhookToken, &f.NotifyWebhook, &f.NotifyEmail, &f.CreatedAt, &f.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func (s *FormStore) List() ([]*models.Form, error) {
 }
 
 func (s *FormStore) GetQuickActions() ([]*models.Form, error) {
-	rows, err := s.db.Query(formSelect+" WHERE is_quick_action = 1 ORDER BY name")
+	rows, err := s.db.Query(formSelect + " WHERE is_quick_action = 1 ORDER BY name")
 	if err != nil {
 		return nil, err
 	}
@@ -83,6 +83,26 @@ func (s *FormStore) Get(id string) (*models.Form, error) {
 	return f, nil
 }
 
+func (s *FormStore) GetByWebhookToken(token string) (*models.Form, error) {
+	if token == "" {
+		return nil, nil
+	}
+	f, err := scanForm(s.db.QueryRow(formSelect+" WHERE webhook_token = ?", token))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	f.Fields, err = s.GetFields(f.ID)
+	return f, err
+}
+
+func (s *FormStore) SetWebhookToken(id, token string) error {
+	_, err := s.db.Exec("UPDATE forms SET webhook_token=? WHERE id=?", token, id)
+	return err
+}
+
 func (s *FormStore) GetFields(formID string) ([]models.FormField, error) {
 	rows, err := s.db.Query(
 		"SELECT id, form_id, name, label, field_type, default_value, options, required, sort_order FROM form_fields WHERE form_id = ? ORDER BY sort_order",
@@ -106,7 +126,7 @@ func (s *FormStore) GetFields(formID string) ([]models.FormField, error) {
 	return fields, rows.Err()
 }
 
-func (s *FormStore) Create(name, description, playbookID, serverID string, vaultID *string, isQuickAction bool, scheduleCron string, scheduleEnabled bool, fields []models.FormField) (*models.Form, error) {
+func (s *FormStore) Create(name, description, playbookID, serverID string, vaultID *string, isQuickAction bool, scheduleCron string, scheduleEnabled bool, notifyWebhook, notifyEmail string, fields []models.FormField) (*models.Form, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
@@ -124,13 +144,15 @@ func (s *FormStore) Create(name, description, playbookID, serverID string, vault
 		IsQuickAction:   isQuickAction,
 		ScheduleCron:    scheduleCron,
 		ScheduleEnabled: scheduleEnabled,
+		NotifyWebhook:   notifyWebhook,
+		NotifyEmail:     notifyEmail,
 		CreatedAt:       now,
 		UpdatedAt:       now,
 	}
 
 	_, err = tx.Exec(
-		"INSERT INTO forms (id, name, description, playbook_id, server_id, vault_id, is_quick_action, image_path, image_name, schedule_cron, schedule_enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, '', '', ?, ?, ?, ?)",
-		f.ID, f.Name, f.Description, f.PlaybookID, f.ServerID, f.VaultID, boolToInt(f.IsQuickAction), f.ScheduleCron, boolToInt(f.ScheduleEnabled), f.CreatedAt, f.UpdatedAt,
+		"INSERT INTO forms (id, name, description, playbook_id, server_id, vault_id, is_quick_action, image_path, image_name, schedule_cron, schedule_enabled, webhook_token, notify_webhook, notify_email, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, '', '', ?, ?, '', ?, ?, ?, ?)",
+		f.ID, f.Name, f.Description, f.PlaybookID, f.ServerID, f.VaultID, boolToInt(f.IsQuickAction), f.ScheduleCron, boolToInt(f.ScheduleEnabled), f.NotifyWebhook, f.NotifyEmail, f.CreatedAt, f.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -153,7 +175,7 @@ func (s *FormStore) Create(name, description, playbookID, serverID string, vault
 	return f, tx.Commit()
 }
 
-func (s *FormStore) Update(id, name, description, playbookID, serverID string, vaultID *string, isQuickAction bool, scheduleCron string, scheduleEnabled bool, fields []models.FormField) (*models.Form, error) {
+func (s *FormStore) Update(id, name, description, playbookID, serverID string, vaultID *string, isQuickAction bool, scheduleCron string, scheduleEnabled bool, notifyWebhook, notifyEmail string, fields []models.FormField) (*models.Form, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
@@ -161,8 +183,8 @@ func (s *FormStore) Update(id, name, description, playbookID, serverID string, v
 	defer tx.Rollback()
 
 	_, err = tx.Exec(
-		"UPDATE forms SET name=?, description=?, playbook_id=?, server_id=?, vault_id=?, is_quick_action=?, schedule_cron=?, schedule_enabled=?, updated_at=? WHERE id=?",
-		name, description, playbookID, serverID, vaultID, boolToInt(isQuickAction), scheduleCron, boolToInt(scheduleEnabled), time.Now(), id,
+		"UPDATE forms SET name=?, description=?, playbook_id=?, server_id=?, vault_id=?, is_quick_action=?, schedule_cron=?, schedule_enabled=?, notify_webhook=?, notify_email=?, updated_at=? WHERE id=?",
+		name, description, playbookID, serverID, vaultID, boolToInt(isQuickAction), scheduleCron, boolToInt(scheduleEnabled), notifyWebhook, notifyEmail, time.Now(), id,
 	)
 	if err != nil {
 		return nil, err

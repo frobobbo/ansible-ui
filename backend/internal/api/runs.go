@@ -13,6 +13,7 @@ import (
 
 	"github.com/brettjrea/ansible-frontend/internal/auth"
 	"github.com/brettjrea/ansible-frontend/internal/models"
+	"github.com/brettjrea/ansible-frontend/internal/notify"
 	"github.com/brettjrea/ansible-frontend/internal/runner"
 	"github.com/brettjrea/ansible-frontend/internal/store"
 	"github.com/gin-gonic/gin"
@@ -369,6 +370,49 @@ func (h *RunsHandler) executeRun(runID string, form *models.Form, variables map[
 
 	h.runs.Finish(runID, status, fullOutput)
 	h.finishLiveRun(runID, status)
+
+	// Fire completion notifications (webhook + email) if configured on the form.
+	if form.NotifyWebhook != "" || form.NotifyEmail != "" {
+		go notify.Send(form.NotifyWebhook, form.NotifyEmail, runID, status, form.Name)
+	}
+}
+
+// TriggerWebhook handles unauthenticated webhook triggers via a form's token.
+// POST /api/webhook/forms/:token
+func (h *RunsHandler) TriggerWebhook(c *gin.Context) {
+	token := c.Param("token")
+	form, err := h.forms.GetByWebhookToken(token)
+	if err != nil || form == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "invalid webhook token"})
+		return
+	}
+
+	// Build variables from field defaults, allow overrides from the request body.
+	variables := make(map[string]interface{})
+	for _, f := range form.Fields {
+		switch f.FieldType {
+		case "bool":
+			variables[f.Name] = f.DefaultValue == "true"
+		default:
+			variables[f.Name] = f.DefaultValue
+		}
+	}
+	var body map[string]interface{}
+	if err := c.ShouldBindJSON(&body); err == nil {
+		for k, v := range body {
+			variables[k] = v
+		}
+	}
+
+	varJSON, _ := json.Marshal(variables)
+	fid := form.ID
+	run, err := h.runs.Create(&fid, form.PlaybookID, form.ServerID, string(varJSON))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	go h.executeRun(run.ID, form, variables)
+	c.JSON(http.StatusAccepted, gin.H{"run_id": run.ID, "status": "pending"})
 }
 
 // TriggerScheduledRun is the callback invoked by the scheduler on each cron tick.

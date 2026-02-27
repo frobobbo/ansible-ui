@@ -79,6 +79,8 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 			protected.DELETE("/forms/:id", auth.RequireEditor, formsH.Delete)
 			protected.POST("/forms/:id/image", auth.RequireEditor, formsH.UploadImage)
 			protected.DELETE("/forms/:id/image", auth.RequireEditor, formsH.DeleteImage)
+			protected.POST("/forms/:id/webhook-token", auth.RequireEditor, formsH.RegenerateWebhookToken)
+			protected.DELETE("/forms/:id/webhook-token", auth.RequireEditor, formsH.RevokeWebhookToken)
 
 			// Quick actions — accessible to all authenticated users (including viewers)
 			protected.GET("/quick-actions", formsH.GetQuickActions)
@@ -99,6 +101,9 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 			protected.POST("/runs/:id/cancel", runsH.Cancel)
 		}
 	}
+
+	// Webhook trigger — no auth, self-authenticating via token in URL.
+	api.POST("/webhook/forms/:token", runsH.TriggerWebhook)
 
 	// Form images — served without auth so browser <img> tags work.
 	r.GET("/api/forms/:id/image", formsH.GetImage)

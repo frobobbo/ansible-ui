@@ -59,6 +59,9 @@ export interface Form {
 	image_name: string;
 	schedule_cron: string;
 	schedule_enabled: boolean;
+	webhook_token: string;
+	notify_webhook: string;
+	notify_email: string;
 	next_run_at?: string | null;
 	fields?: FormField[];
 	created_at: string;

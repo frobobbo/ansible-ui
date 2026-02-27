@@ -9,8 +9,9 @@
 	let serverList = $state<Server[]>([]);
 	let playbookList = $state<Playbook[]>([]);
 	let vaultList = $state<Vault[]>([]);
-	let formData = $state({ name: '', description: '', server_id: '', playbook_id: '', vault_id: '', is_quick_action: false, schedule_cron: '', schedule_enabled: false });
+	let formData = $state({ name: '', description: '', server_id: '', playbook_id: '', vault_id: '', is_quick_action: false, schedule_cron: '', schedule_enabled: false, notify_webhook: '', notify_email: '' });
 	let nextRunAt = $state<string | null>(null);
+	let webhookToken = $state('');
 	let imageName = $state('');
 	let imageUploading = $state(false);
 	let fields = $state<Partial<FormField>[]>([]);
@@ -29,8 +30,9 @@
 		playbookList = pbList;
 		vaultList = vList;
 		if (form) {
-			formData = { name: form.name, description: form.description, server_id: form.server_id, playbook_id: form.playbook_id, vault_id: form.vault_id ?? '', is_quick_action: form.is_quick_action, schedule_cron: form.schedule_cron ?? '', schedule_enabled: form.schedule_enabled ?? false };
+			formData = { name: form.name, description: form.description, server_id: form.server_id, playbook_id: form.playbook_id, vault_id: form.vault_id ?? '', is_quick_action: form.is_quick_action, schedule_cron: form.schedule_cron ?? '', schedule_enabled: form.schedule_enabled ?? false, notify_webhook: form.notify_webhook ?? '', notify_email: form.notify_email ?? '' };
 			nextRunAt = form.next_run_at ?? null;
+			webhookToken = form.webhook_token ?? '';
 			imageName = form.image_name;
 			fields = form.fields || [];
 		}
@@ -90,6 +92,27 @@
 			alert('Failed to remove image');
 		}
 	}
+
+	async function generateWebhookToken() {
+		try {
+			const updated = await formsApi.regenerateWebhookToken(id);
+			webhookToken = updated.webhook_token;
+		} catch (err) {
+			alert(err instanceof ApiError ? err.message : 'Failed to generate token');
+		}
+	}
+
+	async function revokeWebhookToken() {
+		if (!confirm('Revoke the webhook token? The current URL will stop working.')) return;
+		try {
+			const updated = await formsApi.revokeWebhookToken(id);
+			webhookToken = updated.webhook_token;
+		} catch (err) {
+			alert(err instanceof ApiError ? err.message : 'Failed to revoke token');
+		}
+	}
+
+	let webhookUrl = $derived(webhookToken ? `${location.origin}/api/webhook/forms/${webhookToken}` : '');
 </script>
 
 <div class="page-header">
@@ -236,11 +259,48 @@
 			{/if}
 		</div>
 
+		<div class="card">
+			<h2>Notifications</h2>
+			<div class="grid-2">
+				<div class="form-group">
+					<label for="notify_webhook">Webhook URL (on completion)</label>
+					<input id="notify_webhook" class="form-control" type="url" bind:value={formData.notify_webhook} placeholder="https://hooks.example.com/…" />
+					<small class="hint">Receives a POST with JSON payload when the run completes.</small>
+				</div>
+				<div class="form-group">
+					<label for="notify_email">Email (on completion)</label>
+					<input id="notify_email" class="form-control" type="text" bind:value={formData.notify_email} placeholder="user@example.com" />
+					<small class="hint">Comma-separated addresses. Requires SMTP_HOST env var.</small>
+				</div>
+			</div>
+		</div>
+
 		<div class="actions" style="justify-content:flex-end">
 			<a href="/forms" class="btn btn-secondary">Cancel</a>
 			<button type="submit" class="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</button>
 		</div>
 	</form>
+
+	<div class="card">
+		<h2>Webhook Trigger</h2>
+		<p class="hint" style="margin-bottom:1rem">Trigger this form via an unauthenticated HTTP POST. The token acts as the credential — keep it secret.</p>
+		{#if webhookToken}
+			<div class="form-group">
+				<label>Webhook URL</label>
+				<div class="webhook-row">
+					<code class="webhook-url">{webhookUrl}</code>
+					<button type="button" class="btn btn-sm btn-secondary" onclick={() => navigator.clipboard.writeText(webhookUrl)}>Copy</button>
+				</div>
+				<small class="hint">POST to this URL (with optional JSON body to override field defaults). No auth header needed.</small>
+			</div>
+			<div class="actions">
+				<button type="button" class="btn btn-secondary btn-sm" onclick={generateWebhookToken}>Regenerate</button>
+				<button type="button" class="btn btn-danger btn-sm" onclick={revokeWebhookToken}>Revoke</button>
+			</div>
+		{:else}
+			<button type="button" class="btn btn-secondary" onclick={generateWebhookToken}>Generate Webhook Token</button>
+		{/if}
+	</div>
 {/if}
 
 <style>
@@ -258,4 +318,6 @@
 	.file-label { cursor: pointer; display: inline-flex; align-items: center; }
 	.file-label.disabled { opacity: 0.6; cursor: not-allowed; }
 	.hint { display: block; margin-top: 0.25rem; font-size: 0.8rem; color: #64748b; }
+	.webhook-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
+	.webhook-url { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.375rem 0.625rem; font-size: 0.8rem; word-break: break-all; flex: 1; }
 </style>

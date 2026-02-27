@@ -53,6 +53,9 @@ func New(dsn string) (*DB, error) {
 	db.Exec("ALTER TABLE forms ADD COLUMN image_name TEXT NOT NULL DEFAULT ''")
 	db.Exec("ALTER TABLE forms ADD COLUMN schedule_cron TEXT NOT NULL DEFAULT ''")
 	db.Exec("ALTER TABLE forms ADD COLUMN schedule_enabled INTEGER NOT NULL DEFAULT 0")
+	db.Exec("ALTER TABLE forms ADD COLUMN webhook_token TEXT NOT NULL DEFAULT ''")
+	db.Exec("ALTER TABLE forms ADD COLUMN notify_webhook TEXT NOT NULL DEFAULT ''")
+	db.Exec("ALTER TABLE forms ADD COLUMN notify_email TEXT NOT NULL DEFAULT ''")
 
 	// Migrate users table to add 'editor' role — SQLite CHECK constraints require
 	// a full table rebuild; check sqlite_master to avoid re-running on every start.

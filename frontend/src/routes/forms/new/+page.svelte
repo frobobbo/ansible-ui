@@ -7,7 +7,7 @@
 	let serverList = $state<Server[]>([]);
 	let playbookList = $state<Playbook[]>([]);
 	let vaultList = $state<Vault[]>([]);
-	let formData = $state({ name: '', description: '', server_id: '', playbook_id: '', vault_id: '', is_quick_action: false, schedule_cron: '', schedule_enabled: false });
+	let formData = $state({ name: '', description: '', server_id: '', playbook_id: '', vault_id: '', is_quick_action: false, schedule_cron: '', schedule_enabled: false, notify_webhook: '', notify_email: '' });
 	let fields = $state<Partial<FormField>[]>([]);
 	let stagedImage = $state<File | null>(null);
 	let saving = $state(false);
@@ -183,6 +183,22 @@
 				<small class="hint">5-field cron (min hr dom mon dow) or @hourly · @daily · @weekly</small>
 			</div>
 		{/if}
+	</div>
+
+	<div class="card">
+		<h2>Notifications</h2>
+		<div class="grid-2">
+			<div class="form-group">
+				<label for="notify_webhook">Webhook URL (on completion)</label>
+				<input id="notify_webhook" class="form-control" type="url" bind:value={formData.notify_webhook} placeholder="https://hooks.example.com/…" />
+				<small class="hint">Receives a POST with JSON payload when the run completes.</small>
+			</div>
+			<div class="form-group">
+				<label for="notify_email">Email (on completion)</label>
+				<input id="notify_email" class="form-control" type="text" bind:value={formData.notify_email} placeholder="user@example.com" />
+				<small class="hint">Comma-separated addresses. Requires SMTP_HOST env var.</small>
+			</div>
+		</div>
 	</div>
 
 	<div class="actions" style="justify-content:flex-end">

@@ -47,6 +47,9 @@ CREATE TABLE IF NOT EXISTS forms (
     image_name       TEXT NOT NULL DEFAULT '',
     schedule_cron    TEXT NOT NULL DEFAULT '',
     schedule_enabled INTEGER NOT NULL DEFAULT 0,
+    webhook_token    TEXT NOT NULL DEFAULT '',
+    notify_webhook   TEXT NOT NULL DEFAULT '',
+    notify_email     TEXT NOT NULL DEFAULT '',
     created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

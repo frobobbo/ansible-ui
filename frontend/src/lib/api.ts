@@ -123,6 +123,8 @@ export const forms = {
 		return request<Form>(`/forms/${id}/image`, { method: 'POST', body: fd });
 	},
 	deleteImage: (id: string) => request<Form>(`/forms/${id}/image`, { method: 'DELETE' }),
+	regenerateWebhookToken: (id: string) => request<Form>(`/forms/${id}/webhook-token`, { method: 'POST' }),
+	revokeWebhookToken: (id: string) => request<Form>(`/forms/${id}/webhook-token`, { method: 'DELETE' }),
 };
 
 export const vaults = {

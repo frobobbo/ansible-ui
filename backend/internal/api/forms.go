@@ -1,6 +1,8 @@
 package api
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"os"
@@ -155,6 +157,34 @@ func (h *FormsHandler) DeleteImage(c *gin.Context) {
 	c.JSON(http.StatusOK, h.withNextRun(f))
 }
 
+// RegenerateWebhookToken creates a new random webhook token for the form.
+func (h *FormsHandler) RegenerateWebhookToken(c *gin.Context) {
+	id := c.Param("id")
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
+		return
+	}
+	token := hex.EncodeToString(b)
+	if err := h.forms.SetWebhookToken(id, token); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	f, _ := h.forms.Get(id)
+	c.JSON(http.StatusOK, h.withNextRun(f))
+}
+
+// RevokeWebhookToken clears the webhook token, disabling webhook triggers.
+func (h *FormsHandler) RevokeWebhookToken(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.forms.SetWebhookToken(id, ""); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	f, _ := h.forms.Get(id)
+	c.JSON(http.StatusOK, h.withNextRun(f))
+}
+
 type formRequest struct {
 	Name            string             `json:"name" binding:"required"`
 	Description     string             `json:"description"`
@@ -164,6 +194,8 @@ type formRequest struct {
 	IsQuickAction   bool               `json:"is_quick_action"`
 	ScheduleCron    string             `json:"schedule_cron"`
 	ScheduleEnabled bool               `json:"schedule_enabled"`
+	NotifyWebhook   string             `json:"notify_webhook"`
+	NotifyEmail     string             `json:"notify_email"`
 	Fields          []models.FormField `json:"fields"`
 }
 
@@ -184,7 +216,7 @@ func (h *FormsHandler) Create(c *gin.Context) {
 		vaultID = nil
 	}
 
-	f, err := h.forms.Create(req.Name, req.Description, req.PlaybookID, req.ServerID, vaultID, req.IsQuickAction, req.ScheduleCron, req.ScheduleEnabled, req.Fields)
+	f, err := h.forms.Create(req.Name, req.Description, req.PlaybookID, req.ServerID, vaultID, req.IsQuickAction, req.ScheduleCron, req.ScheduleEnabled, req.NotifyWebhook, req.NotifyEmail, req.Fields)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -215,7 +247,7 @@ func (h *FormsHandler) Update(c *gin.Context) {
 		vaultID = nil
 	}
 
-	f, err := h.forms.Update(id, req.Name, req.Description, req.PlaybookID, req.ServerID, vaultID, req.IsQuickAction, req.ScheduleCron, req.ScheduleEnabled, req.Fields)
+	f, err := h.forms.Update(id, req.Name, req.Description, req.PlaybookID, req.ServerID, vaultID, req.IsQuickAction, req.ScheduleCron, req.ScheduleEnabled, req.NotifyWebhook, req.NotifyEmail, req.Fields)
 	if err != nil || f == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "form not found"})
 		return
