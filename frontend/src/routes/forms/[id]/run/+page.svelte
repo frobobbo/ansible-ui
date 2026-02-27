@@ -17,6 +17,7 @@
 	let runResult = $state<Run | null>(null);
 	let error = $state('');
 	let currentRunId = $state<string | null>(null);
+	let batchRunIds = $state<string[]>([]);
 	let outputLines = $state<string[]>([]);
 	let es: EventSource | null = null;
 
@@ -49,7 +50,14 @@
 		}
 
 		try {
-			const { run_id } = await runsApi.create(id, typedVars);
+			const result = await runsApi.create(id, typedVars) as { run_id?: string; batch_id?: string; run_ids?: string[]; status: string };
+			if (result.batch_id && result.run_ids) {
+				// Batch run — redirect to run history filtered by batch
+				batchRunIds = result.run_ids;
+				running = false;
+				return;
+			}
+			const run_id = result.run_id!;
 			currentRunId = run_id;
 
 			const token = encodeURIComponent(get(authStore).token ?? '');
@@ -142,6 +150,21 @@
 		</div>
 	</form>
 
+	{#if batchRunIds.length > 0}
+		<div class="card">
+			<h2>Batch Run Started</h2>
+			<p style="margin-bottom:0.75rem;color:var(--text-muted)">Running on {batchRunIds.length} server{batchRunIds.length === 1 ? '' : 's'}. Check each individual run for output.</p>
+			<div class="batch-links">
+				{#each batchRunIds as rid, i}
+					<a href="/runs/{rid}" class="btn btn-secondary btn-sm">Server {i + 1}: {rid.slice(0,8)}…</a>
+				{/each}
+			</div>
+			<div style="margin-top:1rem">
+				<a href="/runs" class="btn btn-secondary">View All Runs</a>
+			</div>
+		</div>
+	{/if}
+
 	{#if running || runResult}
 		<div class="card">
 			<div class="run-header">
@@ -179,4 +202,5 @@
 	.streaming { font-size: 0.8rem; color: var(--primary); font-weight: 600; }
 	.output { background: #0f172a; color: #e2e8f0; padding: 1.25rem; border-radius: var(--radius); font-size: 0.8rem; line-height: 1.6; overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 500px; overflow-y: auto; }
 	:global(.muted-out) { color: #64748b; font-style: italic; }
+	.batch-links { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 </style>

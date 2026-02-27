@@ -1,20 +1,22 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { forms as formsApi, servers as serversApi, playbooks as playbooksApi, vaults as vaultsApi, ApiError } from '$lib/api';
-	import type { Server, Playbook, Vault, FormField, FieldType } from '$lib/types';
+	import { forms as formsApi, servers as serversApi, playbooks as playbooksApi, vaults as vaultsApi, serverGroups as sgApi, ApiError } from '$lib/api';
+	import type { Server, ServerGroup, Playbook, Vault, FormField, FieldType } from '$lib/types';
 
 	let serverList = $state<Server[]>([]);
+	let serverGroupList = $state<ServerGroup[]>([]);
 	let playbookList = $state<Playbook[]>([]);
 	let vaultList = $state<Vault[]>([]);
-	let formData = $state({ name: '', description: '', server_id: '', playbook_id: '', vault_id: '', is_quick_action: false, schedule_cron: '', schedule_enabled: false, notify_webhook: '', notify_email: '' });
+	let targetMode = $state<'server' | 'group'>('server');
+	let formData = $state({ name: '', description: '', server_id: '', server_group_id: '', playbook_id: '', vault_id: '', is_quick_action: false, schedule_cron: '', schedule_enabled: false, notify_webhook: '', notify_email: '' });
 	let fields = $state<Partial<FormField>[]>([]);
 	let stagedImage = $state<File | null>(null);
 	let saving = $state(false);
 	let error = $state('');
 
 	onMount(async () => {
-		[serverList, playbookList, vaultList] = await Promise.all([serversApi.list(), playbooksApi.list(), vaultsApi.list()]);
+		[serverList, serverGroupList, playbookList, vaultList] = await Promise.all([serversApi.list(), sgApi.list(), playbooksApi.list(), vaultsApi.list()]);
 	});
 
 	function addField() {
@@ -37,7 +39,13 @@
 		saving = true;
 		error = '';
 		try {
-			const created = await formsApi.create({ ...formData, fields });
+			const payload = {
+				...formData,
+				server_id: targetMode === 'server' ? formData.server_id : '',
+				server_group_id: targetMode === 'group' ? formData.server_group_id : '',
+				fields,
+			};
+			const created = await formsApi.create(payload);
 			if (stagedImage) {
 				await formsApi.uploadImage(created.id, stagedImage);
 			}
@@ -70,11 +78,27 @@
 				<input class="form-control" bind:value={formData.description} />
 			</div>
 			<div class="form-group">
-				<label>Server</label>
-				<select class="form-control" bind:value={formData.server_id} required>
-					<option value="">Select server...</option>
-					{#each serverList as sv}<option value={sv.id}>{sv.name} ({sv.host})</option>{/each}
-				</select>
+				<label>Target</label>
+				<div class="toggle-tabs">
+					<button type="button" class="tab-btn" class:active={targetMode === 'server'} onclick={() => targetMode = 'server'}>Single Server</button>
+					<button type="button" class="tab-btn" class:active={targetMode === 'group'} onclick={() => targetMode = 'group'}>Server Group</button>
+				</div>
+			</div>
+			<div class="form-group">
+				{#if targetMode === 'server'}
+					<label>Server</label>
+					<select class="form-control" bind:value={formData.server_id} required>
+						<option value="">Select server...</option>
+						{#each serverList as sv}<option value={sv.id}>{sv.name} ({sv.host})</option>{/each}
+					</select>
+				{:else}
+					<label>Server Group</label>
+					<select class="form-control" bind:value={formData.server_group_id} required>
+						<option value="">Select group...</option>
+						{#each serverGroupList as g}<option value={g.id}>{g.name}</option>{/each}
+					</select>
+					<small class="hint">Running this form will create one run per server in the group.</small>
+				{/if}
 			</div>
 			<div class="form-group">
 				<label>Playbook</label>
@@ -219,4 +243,7 @@
 	.file-badge { display: inline-flex; align-items: center; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; border-radius: 4px; padding: 0.15rem 0.5rem; font-size: 0.8rem; }
 	.file-label { cursor: pointer; display: inline-flex; align-items: center; }
 	.hint { display: block; margin-top: 0.25rem; font-size: 0.8rem; color: #64748b; }
+	.toggle-tabs { display: flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+	.tab-btn { flex: 1; padding: 0.4rem 0.75rem; background: none; border: none; cursor: pointer; font-size: 0.85rem; color: var(--text-muted); transition: background 0.12s, color 0.12s; }
+	.tab-btn.active { background: var(--primary); color: #fff; }
 </style>

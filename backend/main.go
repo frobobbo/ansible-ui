@@ -40,7 +40,7 @@ func main() {
 
 	// Runs handler + scheduler (created before NewRouter to avoid circular deps)
 	vaultStoreForRuns := db.Vaults(jwtSecret)
-	runsH := api.NewRunsHandler(db.Runs(), db.Forms(), db.Servers(), db.Playbooks(), vaultStoreForRuns, db.Audit(), jwtSvc)
+	runsH := api.NewRunsHandler(db.Runs(), db.Forms(), db.Servers(), db.ServerGroups(), db.Playbooks(), vaultStoreForRuns, db.Audit(), jwtSvc)
 
 	sched := scheduler.New(runsH.TriggerScheduledRun)
 	defer sched.Stop()

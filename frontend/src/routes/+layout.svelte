@@ -117,6 +117,17 @@
 							</svg>
 							Vaults
 						</a>
+						<a href="/server-groups" class="nav-link" class:active={$page.url.pathname.startsWith('/server-groups')}>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<rect x="2" y="3" width="20" height="5" rx="1"/>
+								<rect x="2" y="10" width="20" height="5" rx="1"/>
+								<line x1="12" y1="18" x2="20" y2="18"/>
+								<line x1="12" y1="21" x2="17" y2="21"/>
+								<circle cx="6" cy="5.5" r="1" fill="currentColor" stroke="none"/>
+								<circle cx="6" cy="12.5" r="1" fill="currentColor" stroke="none"/>
+							</svg>
+							Server Groups
+						</a>
 					</div>
 				{/if}
 

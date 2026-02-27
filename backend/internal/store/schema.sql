@@ -35,13 +35,29 @@ CREATE TABLE IF NOT EXISTS vaults (
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS server_groups (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS server_group_members (
+    group_id  TEXT NOT NULL REFERENCES server_groups(id) ON DELETE CASCADE,
+    server_id TEXT NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+    PRIMARY KEY (group_id, server_id)
+);
+
+-- Fresh-install schema: server_id nullable, server_group_id added.
+-- Existing databases are migrated in db.go.
 CREATE TABLE IF NOT EXISTS forms (
-    id              TEXT PRIMARY KEY,
-    name            TEXT NOT NULL,
-    description     TEXT NOT NULL DEFAULT '',
-    playbook_id     TEXT NOT NULL REFERENCES playbooks(id) ON DELETE CASCADE,
-    server_id       TEXT NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
-    vault_id        TEXT REFERENCES vaults(id) ON DELETE SET NULL,
+    id               TEXT PRIMARY KEY,
+    name             TEXT NOT NULL,
+    description      TEXT NOT NULL DEFAULT '',
+    playbook_id      TEXT NOT NULL REFERENCES playbooks(id) ON DELETE CASCADE,
+    server_id        TEXT REFERENCES servers(id) ON DELETE CASCADE,
+    server_group_id  TEXT REFERENCES server_groups(id) ON DELETE SET NULL,
+    vault_id         TEXT REFERENCES vaults(id) ON DELETE SET NULL,
     is_quick_action  INTEGER NOT NULL DEFAULT 0,
     image_path       TEXT NOT NULL DEFAULT '',
     image_name       TEXT NOT NULL DEFAULT '',
@@ -51,7 +67,7 @@ CREATE TABLE IF NOT EXISTS forms (
     notify_webhook   TEXT NOT NULL DEFAULT '',
     notify_email     TEXT NOT NULL DEFAULT '',
     created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS form_fields (
@@ -74,6 +90,7 @@ CREATE TABLE IF NOT EXISTS runs (
     variables   TEXT NOT NULL DEFAULT '{}',
     status      TEXT NOT NULL CHECK(status IN ('pending','running','success','failed')) DEFAULT 'pending',
     output      TEXT NOT NULL DEFAULT '',
+    batch_id    TEXT,
     started_at  DATETIME,
     finished_at DATETIME
 );

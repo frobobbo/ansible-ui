@@ -17,6 +17,7 @@ import (
 	"github.com/brettjrea/ansible-frontend/internal/runner"
 	"github.com/brettjrea/ansible-frontend/internal/store"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // liveRun holds in-progress output and SSE subscribers for a single run.
@@ -30,33 +31,36 @@ type liveRun struct {
 }
 
 type RunsHandler struct {
-	runs      *store.RunStore
-	forms     *store.FormStore
-	servers   *store.ServerStore
-	playbooks *store.PlaybookStore
-	vaults    *store.VaultStore
-	audit     *store.AuditStore
-	jwtSvc    *auth.JWTService
-	liveRuns  sync.Map // string -> *liveRun
+	runs         *store.RunStore
+	forms        *store.FormStore
+	servers      *store.ServerStore
+	serverGroups *store.ServerGroupStore
+	playbooks    *store.PlaybookStore
+	vaults       *store.VaultStore
+	audit        *store.AuditStore
+	jwtSvc       *auth.JWTService
+	liveRuns     sync.Map // string -> *liveRun
 }
 
 func NewRunsHandler(
 	runs *store.RunStore,
 	forms *store.FormStore,
 	servers *store.ServerStore,
+	serverGroups *store.ServerGroupStore,
 	playbooks *store.PlaybookStore,
 	vaults *store.VaultStore,
 	audit *store.AuditStore,
 	jwtSvc *auth.JWTService,
 ) *RunsHandler {
 	return &RunsHandler{
-		runs:      runs,
-		forms:     forms,
-		servers:   servers,
-		playbooks: playbooks,
-		vaults:    vaults,
-		audit:     audit,
-		jwtSvc:    jwtSvc,
+		runs:         runs,
+		forms:        forms,
+		servers:      servers,
+		serverGroups: serverGroups,
+		playbooks:    playbooks,
+		vaults:       vaults,
+		audit:        audit,
+		jwtSvc:       jwtSvc,
 	}
 }
 
@@ -105,19 +109,58 @@ func (h *RunsHandler) Create(c *gin.Context) {
 		return
 	}
 
-	varJSON, _ := json.Marshal(req.Variables)
-	fid := req.FormID
-	run, err := h.runs.Create(&fid, form.PlaybookID, form.ServerID, string(varJSON))
+	runID, batchID, runIDs, err := h.launchFormRuns(form, req.Variables)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	go h.executeRun(run.ID, form, req.Variables)
-
 	uid, uname := auditUser(c)
-	h.audit.Log(uid, uname, "create", "run", run.ID, "", c.ClientIP())
-	c.JSON(http.StatusAccepted, gin.H{"run_id": run.ID, "status": "pending"})
+	if batchID != "" {
+		h.audit.Log(uid, uname, "create", "batch-run", batchID, "", c.ClientIP())
+		c.JSON(http.StatusAccepted, gin.H{"batch_id": batchID, "run_ids": runIDs, "status": "pending"})
+	} else {
+		h.audit.Log(uid, uname, "create", "run", runID, "", c.ClientIP())
+		c.JSON(http.StatusAccepted, gin.H{"run_id": runID, "status": "pending"})
+	}
+}
+
+// launchFormRuns creates run records and launches goroutines for a form.
+// For server-group forms it creates one run per member server and returns batchID+runIDs.
+// For single-server forms it returns runID.
+func (h *RunsHandler) launchFormRuns(form *models.Form, variables map[string]interface{}) (runID, batchID string, runIDs []string, err error) {
+	varJSON, _ := json.Marshal(variables)
+	fid := form.ID
+
+	if form.ServerGroupID != nil {
+		members, merr := h.serverGroups.GetMembers(*form.ServerGroupID)
+		if merr != nil {
+			return "", "", nil, fmt.Errorf("load server group members: %w", merr)
+		}
+		if len(members) == 0 {
+			return "", "", nil, fmt.Errorf("server group has no members")
+		}
+		bid := uuid.New().String()
+		for _, server := range members {
+			run, rerr := h.runs.Create(&fid, form.PlaybookID, server.ID, string(varJSON), &bid)
+			if rerr != nil {
+				continue
+			}
+			runIDs = append(runIDs, run.ID)
+			go h.executeRunWithServer(run.ID, form, server, variables)
+		}
+		return "", bid, runIDs, nil
+	}
+
+	if form.ServerID == nil {
+		return "", "", nil, fmt.Errorf("form has no server configured")
+	}
+	run, rerr := h.runs.Create(&fid, form.PlaybookID, *form.ServerID, string(varJSON), nil)
+	if rerr != nil {
+		return "", "", nil, rerr
+	}
+	go h.executeRun(run.ID, form, variables)
+	return run.ID, "", nil, nil
 }
 
 // ── SSE streaming ─────────────────────────────────────────────────────────────
@@ -281,7 +324,22 @@ func (h *RunsHandler) Cancel(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// executeRun loads the form's single server then delegates to executeRunWithServer.
 func (h *RunsHandler) executeRun(runID string, form *models.Form, variables map[string]interface{}) {
+	if form.ServerID == nil {
+		h.runs.Finish(runID, "failed", "form has no server configured")
+		return
+	}
+	server, err := h.servers.Get(*form.ServerID)
+	if err != nil || server == nil {
+		h.runs.Finish(runID, "failed", fmt.Sprintf("server not found: %v", err))
+		return
+	}
+	h.executeRunWithServer(runID, form, server, variables)
+}
+
+// executeRunWithServer performs the full SSH + ansible execution for a specific server.
+func (h *RunsHandler) executeRunWithServer(runID string, form *models.Form, server *models.Server, variables map[string]interface{}) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	lr := &liveRun{cancelFn: cancel}
@@ -293,12 +351,6 @@ func (h *RunsHandler) executeRun(runID string, form *models.Form, variables map[
 	}
 
 	h.runs.SetRunning(runID)
-
-	server, err := h.servers.Get(form.ServerID)
-	if err != nil || server == nil {
-		fail(fmt.Sprintf("server not found: %v", err))
-		return
-	}
 
 	playbook, err := h.playbooks.Get(form.PlaybookID)
 	if err != nil || playbook == nil {
@@ -409,27 +461,30 @@ func (h *RunsHandler) TriggerWebhook(c *gin.Context) {
 		}
 	}
 
-	varJSON, _ := json.Marshal(variables)
-	fid := form.ID
-	run, err := h.runs.Create(&fid, form.PlaybookID, form.ServerID, string(varJSON))
+	runID, batchID, runIDs, err := h.launchFormRuns(form, variables)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	go h.executeRun(run.ID, form, variables)
-	h.audit.Log("", "webhook", "trigger", "run", run.ID, "", c.ClientIP())
-	c.JSON(http.StatusAccepted, gin.H{"run_id": run.ID, "status": "pending"})
+	if batchID != "" {
+		h.audit.Log("", "webhook", "trigger", "batch-run", batchID, "", c.ClientIP())
+		c.JSON(http.StatusAccepted, gin.H{"batch_id": batchID, "run_ids": runIDs, "status": "pending"})
+	} else {
+		h.audit.Log("", "webhook", "trigger", "run", runID, "", c.ClientIP())
+		c.JSON(http.StatusAccepted, gin.H{"run_id": runID, "status": "pending"})
+	}
 }
 
 // TriggerScheduledRun is the callback invoked by the scheduler on each cron tick.
-// It creates a run record and launches executeRun in a goroutine.
 func (h *RunsHandler) TriggerScheduledRun(form *models.Form, variables map[string]interface{}) {
-	varJSON, _ := json.Marshal(variables)
-	fid := form.ID
-	run, err := h.runs.Create(&fid, form.PlaybookID, form.ServerID, string(varJSON))
+	runID, batchID, _, err := h.launchFormRuns(form, variables)
 	if err != nil {
-		log.Printf("[scheduler] failed to create run for form %s: %v", form.ID, err)
+		log.Printf("[scheduler] failed to launch runs for form %s: %v", form.ID, err)
 		return
 	}
-	go h.executeRun(run.ID, form, variables)
+	if batchID != "" {
+		log.Printf("[scheduler] batch run %s started for form %s", batchID, form.ID)
+	} else {
+		log.Printf("[scheduler] run %s started for form %s", runID, form.ID)
+	}
 }

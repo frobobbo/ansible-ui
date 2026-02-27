@@ -57,6 +57,43 @@ func New(dsn string) (*DB, error) {
 	db.Exec("ALTER TABLE forms ADD COLUMN notify_webhook TEXT NOT NULL DEFAULT ''")
 	db.Exec("ALTER TABLE forms ADD COLUMN notify_email TEXT NOT NULL DEFAULT ''")
 
+	// Server groups: rebuild forms to make server_id nullable and add server_group_id.
+	// PRAGMA legacy_alter_table=ON keeps FK refs in form_fields/runs pointing to the
+	// name "forms" (not rewritten to "_forms_bak"), so they resolve to the new table.
+	var sgColExists int
+	db.QueryRow("SELECT COUNT(*) FROM pragma_table_info('forms') WHERE name='server_group_id'").Scan(&sgColExists)
+	if sgColExists == 0 {
+		db.Exec("PRAGMA legacy_alter_table = ON")
+		db.Exec("PRAGMA foreign_keys = OFF")
+		db.Exec("ALTER TABLE forms RENAME TO _forms_bak")
+		db.Exec(`CREATE TABLE forms (
+			id               TEXT PRIMARY KEY,
+			name             TEXT NOT NULL,
+			description      TEXT NOT NULL DEFAULT '',
+			playbook_id      TEXT NOT NULL REFERENCES playbooks(id) ON DELETE CASCADE,
+			server_id        TEXT REFERENCES servers(id) ON DELETE CASCADE,
+			server_group_id  TEXT REFERENCES server_groups(id) ON DELETE SET NULL,
+			vault_id         TEXT REFERENCES vaults(id) ON DELETE SET NULL,
+			is_quick_action  INTEGER NOT NULL DEFAULT 0,
+			image_path       TEXT NOT NULL DEFAULT '',
+			image_name       TEXT NOT NULL DEFAULT '',
+			schedule_cron    TEXT NOT NULL DEFAULT '',
+			schedule_enabled INTEGER NOT NULL DEFAULT 0,
+			webhook_token    TEXT NOT NULL DEFAULT '',
+			notify_webhook   TEXT NOT NULL DEFAULT '',
+			notify_email     TEXT NOT NULL DEFAULT '',
+			created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`)
+		db.Exec(`INSERT INTO forms (id, name, description, playbook_id, server_id, vault_id, is_quick_action, image_path, image_name, schedule_cron, schedule_enabled, webhook_token, notify_webhook, notify_email, created_at, updated_at)
+			SELECT id, name, description, playbook_id, server_id, vault_id, is_quick_action, image_path, image_name, schedule_cron, schedule_enabled, webhook_token, notify_webhook, notify_email, created_at, updated_at
+			FROM _forms_bak`)
+		db.Exec("DROP TABLE _forms_bak")
+		db.Exec("PRAGMA foreign_keys = ON")
+		db.Exec("PRAGMA legacy_alter_table = OFF")
+	}
+	db.Exec("ALTER TABLE runs ADD COLUMN batch_id TEXT")
+
 	// Migrate users table to add 'editor' role — SQLite CHECK constraints require
 	// a full table rebuild; check sqlite_master to avoid re-running on every start.
 	var userSchema string
@@ -104,12 +141,13 @@ func (db *DB) EnsureDefaultAdmin() error {
 	return err
 }
 
-func (db *DB) Users() *UserStore         { return &UserStore{db: db.conn} }
-func (db *DB) Servers() *ServerStore     { return &ServerStore{db: db.conn} }
-func (db *DB) Playbooks() *PlaybookStore { return &PlaybookStore{db: db.conn} }
-func (db *DB) Forms() *FormStore         { return &FormStore{db: db.conn} }
-func (db *DB) Runs() *RunStore           { return &RunStore{db: db.conn} }
-func (db *DB) Audit() *AuditStore        { return &AuditStore{db: db.conn} }
+func (db *DB) Users() *UserStore               { return &UserStore{db: db.conn} }
+func (db *DB) Servers() *ServerStore           { return &ServerStore{db: db.conn} }
+func (db *DB) Playbooks() *PlaybookStore       { return &PlaybookStore{db: db.conn} }
+func (db *DB) Forms() *FormStore               { return &FormStore{db: db.conn} }
+func (db *DB) Runs() *RunStore                 { return &RunStore{db: db.conn} }
+func (db *DB) Audit() *AuditStore              { return &AuditStore{db: db.conn} }
+func (db *DB) ServerGroups() *ServerGroupStore { return &ServerGroupStore{db: db.conn} }
 func (db *DB) Vaults(secret string) *VaultStore {
 	return newVaultStore(db.conn, secret)
 }

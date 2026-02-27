@@ -48,12 +48,20 @@ export interface Vault {
 	created_at: string;
 }
 
+export interface ServerGroup {
+	id: string;
+	name: string;
+	description: string;
+	created_at: string;
+}
+
 export interface Form {
 	id: string;
 	name: string;
 	description: string;
 	playbook_id: string;
-	server_id: string;
+	server_id?: string | null;
+	server_group_id?: string | null;
 	vault_id?: string | null;
 	is_quick_action: boolean;
 	image_name: string;
@@ -76,6 +84,7 @@ export interface Run {
 	variables: string; // JSON string
 	status: RunStatus;
 	output: string;
+	batch_id?: string | null;
 	started_at: string | null;
 	finished_at: string | null;
 }

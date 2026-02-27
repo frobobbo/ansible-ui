@@ -86,7 +86,10 @@
 			<tbody>
 				{#each filtered as run}
 					<tr>
-						<td><code>{run.id.slice(0, 8)}...</code></td>
+						<td>
+							<code>{run.id.slice(0, 8)}...</code>
+							{#if run.batch_id}<span class="badge badge-muted batch-badge" title="Batch {run.batch_id.slice(0,8)}">batch</span>{/if}
+						</td>
 						<td><span class="badge {statusClass(run.status)}">{run.status}</span></td>
 						<td>{duration(run)}</td>
 						<td>{run.started_at ? new Date(run.started_at).toLocaleString() : '—'}</td>
@@ -121,4 +124,5 @@
 	.paginator { display: flex; align-items: center; gap: 0.5rem; justify-content: center; margin-top: 1rem; }
 	.page-info { font-size: 0.85rem; color: var(--text-muted); padding: 0 0.5rem; }
 	.total-label { text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-top: 0.75rem; }
+	.batch-badge { font-size: 0.65rem; margin-left: 0.4rem; vertical-align: middle; }
 </style>

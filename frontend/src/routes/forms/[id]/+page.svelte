@@ -2,14 +2,16 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { forms as formsApi, servers as serversApi, playbooks as playbooksApi, vaults as vaultsApi, ApiError } from '$lib/api';
-	import type { Server, Playbook, Vault, FormField, FieldType } from '$lib/types';
+	import { forms as formsApi, servers as serversApi, playbooks as playbooksApi, vaults as vaultsApi, serverGroups as sgApi, ApiError } from '$lib/api';
+	import type { Server, ServerGroup, Playbook, Vault, FormField, FieldType } from '$lib/types';
 
 	let id = $derived($page.params.id);
 	let serverList = $state<Server[]>([]);
+	let serverGroupList = $state<ServerGroup[]>([]);
 	let playbookList = $state<Playbook[]>([]);
 	let vaultList = $state<Vault[]>([]);
-	let formData = $state({ name: '', description: '', server_id: '', playbook_id: '', vault_id: '', is_quick_action: false, schedule_cron: '', schedule_enabled: false, notify_webhook: '', notify_email: '' });
+	let targetMode = $state<'server' | 'group'>('server');
+	let formData = $state({ name: '', description: '', server_id: '', server_group_id: '', playbook_id: '', vault_id: '', is_quick_action: false, schedule_cron: '', schedule_enabled: false, notify_webhook: '', notify_email: '' });
 	let nextRunAt = $state<string | null>(null);
 	let webhookToken = $state('');
 	let imageName = $state('');
@@ -20,17 +22,20 @@
 	let error = $state('');
 
 	onMount(async () => {
-		const [form, svList, pbList, vList] = await Promise.all([
+		const [form, svList, sgList, pbList, vList] = await Promise.all([
 			formsApi.get(id),
 			serversApi.list(),
+			sgApi.list(),
 			playbooksApi.list(),
 			vaultsApi.list()
 		]);
 		serverList = svList;
+		serverGroupList = sgList;
 		playbookList = pbList;
 		vaultList = vList;
 		if (form) {
-			formData = { name: form.name, description: form.description, server_id: form.server_id, playbook_id: form.playbook_id, vault_id: form.vault_id ?? '', is_quick_action: form.is_quick_action, schedule_cron: form.schedule_cron ?? '', schedule_enabled: form.schedule_enabled ?? false, notify_webhook: form.notify_webhook ?? '', notify_email: form.notify_email ?? '' };
+			targetMode = form.server_group_id ? 'group' : 'server';
+			formData = { name: form.name, description: form.description, server_id: form.server_id ?? '', server_group_id: form.server_group_id ?? '', playbook_id: form.playbook_id, vault_id: form.vault_id ?? '', is_quick_action: form.is_quick_action, schedule_cron: form.schedule_cron ?? '', schedule_enabled: form.schedule_enabled ?? false, notify_webhook: form.notify_webhook ?? '', notify_email: form.notify_email ?? '' };
 			nextRunAt = form.next_run_at ?? null;
 			webhookToken = form.webhook_token ?? '';
 			imageName = form.image_name;
@@ -59,7 +64,13 @@
 		saving = true;
 		error = '';
 		try {
-			await formsApi.update(id, { ...formData, fields });
+			const payload = {
+				...formData,
+				server_id: targetMode === 'server' ? formData.server_id : '',
+				server_group_id: targetMode === 'group' ? formData.server_group_id : '',
+				fields,
+			};
+			await formsApi.update(id, payload);
 			goto('/forms');
 		} catch (err) {
 			error = err instanceof ApiError ? err.message : 'Save failed';
@@ -140,11 +151,27 @@
 					<input class="form-control" bind:value={formData.description} />
 				</div>
 				<div class="form-group">
-					<label>Server</label>
-					<select class="form-control" bind:value={formData.server_id} required>
-						<option value="">Select server...</option>
-						{#each serverList as sv}<option value={sv.id}>{sv.name} ({sv.host})</option>{/each}
-					</select>
+					<label>Target</label>
+					<div class="toggle-tabs">
+						<button type="button" class="tab-btn" class:active={targetMode === 'server'} onclick={() => targetMode = 'server'}>Single Server</button>
+						<button type="button" class="tab-btn" class:active={targetMode === 'group'} onclick={() => targetMode = 'group'}>Server Group</button>
+					</div>
+				</div>
+				<div class="form-group">
+					{#if targetMode === 'server'}
+						<label>Server</label>
+						<select class="form-control" bind:value={formData.server_id} required>
+							<option value="">Select server...</option>
+							{#each serverList as sv}<option value={sv.id}>{sv.name} ({sv.host})</option>{/each}
+						</select>
+					{:else}
+						<label>Server Group</label>
+						<select class="form-control" bind:value={formData.server_group_id} required>
+							<option value="">Select group...</option>
+							{#each serverGroupList as g}<option value={g.id}>{g.name}</option>{/each}
+						</select>
+						<small class="hint">Running this form will create one run per server in the group.</small>
+					{/if}
 				</div>
 				<div class="form-group">
 					<label>Playbook</label>
@@ -320,4 +347,7 @@
 	.hint { display: block; margin-top: 0.25rem; font-size: 0.8rem; color: #64748b; }
 	.webhook-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
 	.webhook-url { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.375rem 0.625rem; font-size: 0.8rem; word-break: break-all; flex: 1; }
+	.toggle-tabs { display: flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+	.tab-btn { flex: 1; padding: 0.4rem 0.75rem; background: none; border: none; cursor: pointer; font-size: 0.85rem; color: var(--text-muted); transition: background 0.12s, color 0.12s; }
+	.tab-btn.active { background: var(--primary); color: #fff; }
 </style>

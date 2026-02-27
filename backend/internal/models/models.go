@@ -49,13 +49,21 @@ type Vault struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
+type ServerGroup struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 type Form struct {
-	ID            string      `json:"id" db:"id"`
-	Name          string      `json:"name" db:"name"`
-	Description   string      `json:"description" db:"description"`
-	PlaybookID    string      `json:"playbook_id" db:"playbook_id"`
-	ServerID      string      `json:"server_id" db:"server_id"`
-	VaultID       *string     `json:"vault_id" db:"vault_id"`
+	ID              string      `json:"id" db:"id"`
+	Name            string      `json:"name" db:"name"`
+	Description     string      `json:"description" db:"description"`
+	PlaybookID      string      `json:"playbook_id" db:"playbook_id"`
+	ServerID        *string     `json:"server_id" db:"server_id"`
+	ServerGroupID   *string     `json:"server_group_id" db:"server_group_id"`
+	VaultID         *string     `json:"vault_id" db:"vault_id"`
 	IsQuickAction   bool        `json:"is_quick_action" db:"is_quick_action"`
 	ImageName       string      `json:"image_name" db:"image_name"`
 	ScheduleCron    string      `json:"schedule_cron" db:"schedule_cron"`
@@ -64,8 +72,8 @@ type Form struct {
 	NotifyWebhook   string      `json:"notify_webhook" db:"notify_webhook"`
 	NotifyEmail     string      `json:"notify_email" db:"notify_email"`
 	Fields          []FormField `json:"fields,omitempty" db:"-"`
-	CreatedAt     time.Time   `json:"created_at" db:"created_at"`
-	UpdatedAt     time.Time   `json:"updated_at" db:"updated_at"`
+	CreatedAt       time.Time   `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time   `json:"updated_at" db:"updated_at"`
 }
 
 type AuditLog struct {
@@ -88,6 +96,7 @@ type Run struct {
 	Variables  string     `json:"variables" db:"variables"`
 	Status     string     `json:"status" db:"status"`
 	Output     string     `json:"output" db:"output"`
+	BatchID    *string    `json:"batch_id" db:"batch_id"`
 	StartedAt  *time.Time `json:"started_at" db:"started_at"`
 	FinishedAt *time.Time `json:"finished_at" db:"finished_at"`
 }

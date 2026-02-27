@@ -190,7 +190,8 @@ type formRequest struct {
 	Name            string             `json:"name" binding:"required"`
 	Description     string             `json:"description"`
 	PlaybookID      string             `json:"playbook_id" binding:"required"`
-	ServerID        string             `json:"server_id" binding:"required"`
+	ServerID        string             `json:"server_id"`
+	ServerGroupID   string             `json:"server_group_id"`
 	VaultID         *string            `json:"vault_id"`
 	IsQuickAction   bool               `json:"is_quick_action"`
 	ScheduleCron    string             `json:"schedule_cron"`
@@ -198,6 +199,19 @@ type formRequest struct {
 	NotifyWebhook   string             `json:"notify_webhook"`
 	NotifyEmail     string             `json:"notify_email"`
 	Fields          []models.FormField `json:"fields"`
+}
+
+// parseServerTarget extracts nullable serverID and serverGroupID from a formRequest.
+func parseServerTarget(req formRequest) (serverID *string, serverGroupID *string, err error) {
+	if req.ServerGroupID != "" {
+		sgid := req.ServerGroupID
+		return nil, &sgid, nil
+	}
+	if req.ServerID != "" {
+		sid := req.ServerID
+		return &sid, nil, nil
+	}
+	return nil, nil, fmt.Errorf("either server_id or server_group_id is required")
 }
 
 func (h *FormsHandler) Create(c *gin.Context) {
@@ -212,12 +226,18 @@ func (h *FormsHandler) Create(c *gin.Context) {
 		return
 	}
 
+	serverID, serverGroupID, err := parseServerTarget(req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	vaultID := req.VaultID
 	if vaultID != nil && *vaultID == "" {
 		vaultID = nil
 	}
 
-	f, err := h.forms.Create(req.Name, req.Description, req.PlaybookID, req.ServerID, vaultID, req.IsQuickAction, req.ScheduleCron, req.ScheduleEnabled, req.NotifyWebhook, req.NotifyEmail, req.Fields)
+	f, err := h.forms.Create(req.Name, req.Description, req.PlaybookID, serverID, serverGroupID, vaultID, req.IsQuickAction, req.ScheduleCron, req.ScheduleEnabled, req.NotifyWebhook, req.NotifyEmail, req.Fields)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -245,12 +265,18 @@ func (h *FormsHandler) Update(c *gin.Context) {
 		return
 	}
 
+	serverID, serverGroupID, err := parseServerTarget(req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	vaultID := req.VaultID
 	if vaultID != nil && *vaultID == "" {
 		vaultID = nil
 	}
 
-	f, err := h.forms.Update(id, req.Name, req.Description, req.PlaybookID, req.ServerID, vaultID, req.IsQuickAction, req.ScheduleCron, req.ScheduleEnabled, req.NotifyWebhook, req.NotifyEmail, req.Fields)
+	f, err := h.forms.Update(id, req.Name, req.Description, req.PlaybookID, serverID, serverGroupID, vaultID, req.IsQuickAction, req.ScheduleCron, req.ScheduleEnabled, req.NotifyWebhook, req.NotifyEmail, req.Fields)
 	if err != nil || f == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "form not found"})
 		return

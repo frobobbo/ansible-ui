@@ -13,7 +13,7 @@ type RunStore struct {
 	db *sql.DB
 }
 
-func (s *RunStore) Create(formID *string, playbookID, serverID, variables string) (*models.Run, error) {
+func (s *RunStore) Create(formID *string, playbookID, serverID, variables string, batchID *string) (*models.Run, error) {
 	r := &models.Run{
 		ID:         uuid.New().String(),
 		FormID:     formID,
@@ -22,10 +22,11 @@ func (s *RunStore) Create(formID *string, playbookID, serverID, variables string
 		Variables:  variables,
 		Status:     "pending",
 		Output:     "",
+		BatchID:    batchID,
 	}
 	_, err := s.db.Exec(
-		"INSERT INTO runs (id, form_id, playbook_id, server_id, variables, status, output) VALUES (?, ?, ?, ?, ?, 'pending', '')",
-		r.ID, r.FormID, r.PlaybookID, r.ServerID, r.Variables,
+		"INSERT INTO runs (id, form_id, playbook_id, server_id, variables, status, output, batch_id) VALUES (?, ?, ?, ?, ?, 'pending', '', ?)",
+		r.ID, r.FormID, r.PlaybookID, r.ServerID, r.Variables, r.BatchID,
 	)
 	return r, err
 }
@@ -33,8 +34,8 @@ func (s *RunStore) Create(formID *string, playbookID, serverID, variables string
 func (s *RunStore) Get(id string) (*models.Run, error) {
 	r := &models.Run{}
 	err := s.db.QueryRow(
-		"SELECT id, form_id, playbook_id, server_id, variables, status, output, started_at, finished_at FROM runs WHERE id = ?", id,
-	).Scan(&r.ID, &r.FormID, &r.PlaybookID, &r.ServerID, &r.Variables, &r.Status, &r.Output, &r.StartedAt, &r.FinishedAt)
+		"SELECT id, form_id, playbook_id, server_id, variables, status, output, batch_id, started_at, finished_at FROM runs WHERE id = ?", id,
+	).Scan(&r.ID, &r.FormID, &r.PlaybookID, &r.ServerID, &r.Variables, &r.Status, &r.Output, &r.BatchID, &r.StartedAt, &r.FinishedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -43,7 +44,7 @@ func (s *RunStore) Get(id string) (*models.Run, error) {
 
 // List returns runs ordered by newest first. Pass limit=0 for all rows.
 func (s *RunStore) List(limit, offset int) ([]*models.Run, error) {
-	q := "SELECT id, form_id, playbook_id, server_id, variables, status, output, started_at, finished_at FROM runs ORDER BY rowid DESC"
+	q := "SELECT id, form_id, playbook_id, server_id, variables, status, output, batch_id, started_at, finished_at FROM runs ORDER BY rowid DESC"
 	args := []interface{}{}
 	if limit > 0 {
 		q += " LIMIT ? OFFSET ?"
@@ -58,7 +59,7 @@ func (s *RunStore) List(limit, offset int) ([]*models.Run, error) {
 	var runs []*models.Run
 	for rows.Next() {
 		r := &models.Run{}
-		if err := rows.Scan(&r.ID, &r.FormID, &r.PlaybookID, &r.ServerID, &r.Variables, &r.Status, &r.Output, &r.StartedAt, &r.FinishedAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.FormID, &r.PlaybookID, &r.ServerID, &r.Variables, &r.Status, &r.Output, &r.BatchID, &r.StartedAt, &r.FinishedAt); err != nil {
 			return nil, err
 		}
 		runs = append(runs, r)

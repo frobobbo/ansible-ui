@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import { authStore } from './stores';
-import type { AuditLog, AuthResponse, Form, FormField, Playbook, Run, Server, User, Vault } from './types';
+import type { AuditLog, AuthResponse, Form, FormField, Playbook, Run, Server, ServerGroup, User, Vault } from './types';
 
 export class ApiError extends Error {
 	constructor(public status: number, message: string) {
@@ -125,6 +125,19 @@ export const forms = {
 	deleteImage: (id: string) => request<Form>(`/forms/${id}/image`, { method: 'DELETE' }),
 	regenerateWebhookToken: (id: string) => request<Form>(`/forms/${id}/webhook-token`, { method: 'POST' }),
 	revokeWebhookToken: (id: string) => request<Form>(`/forms/${id}/webhook-token`, { method: 'DELETE' }),
+};
+
+export const serverGroups = {
+	list: () => request<ServerGroup[]>('/server-groups'),
+	get: (id: string) => request<ServerGroup>(`/server-groups/${id}`),
+	create: (data: { name: string; description: string }) =>
+		request<ServerGroup>('/server-groups', { method: 'POST', body: JSON.stringify(data) }),
+	update: (id: string, data: { name: string; description: string }) =>
+		request<ServerGroup>(`/server-groups/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+	delete: (id: string) => request<void>(`/server-groups/${id}`, { method: 'DELETE' }),
+	getMembers: (id: string) => request<Server[]>(`/server-groups/${id}/members`),
+	setMembers: (id: string, serverIds: string[]) =>
+		request<void>(`/server-groups/${id}/members`, { method: 'PUT', body: JSON.stringify({ server_ids: serverIds }) }),
 };
 
 export const vaults = {

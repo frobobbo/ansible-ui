@@ -34,6 +34,7 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 	auditH := newAuditHandler(auditStore)
 	usersH := newUsersHandler(db.Users(), auditStore)
 	serversH := newServersHandler(db.Servers(), auditStore)
+	serverGroupsH := newServerGroupsHandler(db.ServerGroups(), auditStore)
 	playbooksH := newPlaybooksHandler(db.Playbooks(), auditStore, uploadDir)
 	formsH := newFormsHandler(db.Forms(), auditStore, formImageDir, sched)
 	vaultsH := newVaultsHandler(vaultStore, auditStore, vaultUploadDir)
@@ -65,6 +66,15 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 			protected.PUT("/servers/:id", auth.RequireAdmin, serversH.Update)
 			protected.DELETE("/servers/:id", auth.RequireAdmin, serversH.Delete)
 			protected.POST("/servers/:id/test", serversH.Test)
+
+			// Server groups
+			protected.GET("/server-groups", serverGroupsH.List)
+			protected.GET("/server-groups/:id", serverGroupsH.Get)
+			protected.POST("/server-groups", auth.RequireAdmin, serverGroupsH.Create)
+			protected.PUT("/server-groups/:id", auth.RequireAdmin, serverGroupsH.Update)
+			protected.DELETE("/server-groups/:id", auth.RequireAdmin, serverGroupsH.Delete)
+			protected.GET("/server-groups/:id/members", serverGroupsH.GetMembers)
+			protected.PUT("/server-groups/:id/members", auth.RequireAdmin, serverGroupsH.SetMembers)
 
 			// Playbooks
 			protected.GET("/playbooks", playbooksH.List)
