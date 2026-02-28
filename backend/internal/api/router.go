@@ -50,6 +50,9 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 		api.POST("/auth/login", authH.Login)
 		api.POST("/auth/logout", authH.Logout)
 
+		// Swagger UI + raw spec (no auth)
+		RegisterDocsRoutes(api)
+
 		protected := api.Group("/")
 		protected.Use(auth.Middleware(jwtSvc))
 		{

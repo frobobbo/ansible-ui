@@ -1,0 +1,1056 @@
+openapi: "3.0.3"
+info:
+  title: Ansible UI API
+  description: |
+    REST API for the Ansible UI — a self-hosted web interface for running Ansible
+    playbooks via SSH.
+
+    **Authentication**: Most endpoints require a Bearer JWT token obtained from
+    `POST /api/auth/login`. Pass it as `Authorization: Bearer <token>`.
+
+    **Roles**: `admin` > `editor` > `viewer`. Endpoints marked *(admin)* or
+    *(editor)* require the corresponding role.
+  version: "1.0.0"
+
+servers:
+  - url: /api
+    description: Same-origin API (relative to app root)
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+
+    AuthRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, example: admin }
+        password: { type: string, format: password, example: admin }
+
+    AuthResponse:
+      type: object
+      properties:
+        token:  { type: string, description: JWT token }
+        user:   { $ref: '#/components/schemas/User' }
+
+    User:
+      type: object
+      properties:
+        id:         { type: string, format: uuid }
+        username:   { type: string }
+        role:       { type: string, enum: [admin, editor, viewer] }
+        created_at: { type: string, format: date-time }
+
+    UserCreate:
+      type: object
+      required: [username, password, role]
+      properties:
+        username: { type: string }
+        password: { type: string }
+        role:     { type: string, enum: [admin, editor, viewer] }
+
+    UserUpdate:
+      type: object
+      required: [username, role]
+      properties:
+        username: { type: string }
+        password: { type: string, description: Leave blank to keep existing password }
+        role:     { type: string, enum: [admin, editor, viewer] }
+
+    Server:
+      type: object
+      properties:
+        id:              { type: string, format: uuid }
+        name:            { type: string }
+        host:            { type: string }
+        port:            { type: integer, default: 22 }
+        username:        { type: string }
+        pre_command:     { type: string, description: Shell command run before ansible-playbook }
+        created_at:      { type: string, format: date-time }
+
+    ServerWrite:
+      type: object
+      required: [name, host, username]
+      properties:
+        name:            { type: string }
+        host:            { type: string }
+        port:            { type: integer, default: 22 }
+        username:        { type: string }
+        ssh_private_key: { type: string, description: PEM-encoded private key }
+        pre_command:     { type: string }
+
+    ServerGroup:
+      type: object
+      properties:
+        id:          { type: string, format: uuid }
+        name:        { type: string }
+        description: { type: string }
+        created_at:  { type: string, format: date-time }
+
+    ServerGroupWrite:
+      type: object
+      required: [name]
+      properties:
+        name:        { type: string }
+        description: { type: string }
+
+    SetMembersRequest:
+      type: object
+      properties:
+        server_ids:
+          type: array
+          items: { type: string, format: uuid }
+
+    Playbook:
+      type: object
+      properties:
+        id:          { type: string, format: uuid }
+        name:        { type: string }
+        description: { type: string }
+        file_path:   { type: string }
+        created_at:  { type: string, format: date-time }
+
+    FormField:
+      type: object
+      properties:
+        id:            { type: string, format: uuid }
+        form_id:       { type: string, format: uuid }
+        name:          { type: string, description: Ansible variable name }
+        label:         { type: string, description: Display label }
+        field_type:    { type: string, enum: [text, number, bool, select] }
+        default_value: { type: string }
+        options:       { type: string, description: JSON array string for select fields }
+        required:      { type: boolean }
+        sort_order:    { type: integer }
+
+    Form:
+      type: object
+      properties:
+        id:               { type: string, format: uuid }
+        name:             { type: string }
+        description:      { type: string }
+        playbook_id:      { type: string, format: uuid }
+        server_id:        { type: string, format: uuid, nullable: true }
+        server_group_id:  { type: string, format: uuid, nullable: true }
+        vault_id:         { type: string, format: uuid, nullable: true }
+        is_quick_action:  { type: boolean }
+        image_name:       { type: string }
+        schedule_cron:    { type: string, example: "0 2 * * *" }
+        schedule_enabled: { type: boolean }
+        webhook_token:    { type: string }
+        notify_webhook:   { type: string, format: uri }
+        notify_email:     { type: string }
+        next_run_at:      { type: string, format: date-time, nullable: true }
+        fields:           { type: array, items: { $ref: '#/components/schemas/FormField' } }
+        created_at:       { type: string, format: date-time }
+        updated_at:       { type: string, format: date-time }
+
+    FormWrite:
+      type: object
+      required: [name, playbook_id]
+      properties:
+        name:             { type: string }
+        description:      { type: string }
+        playbook_id:      { type: string, format: uuid }
+        server_id:        { type: string, format: uuid, description: Required when server_group_id is not set }
+        server_group_id:  { type: string, format: uuid, description: Required when server_id is not set }
+        vault_id:         { type: string, format: uuid, nullable: true }
+        is_quick_action:  { type: boolean }
+        schedule_cron:    { type: string }
+        schedule_enabled: { type: boolean }
+        notify_webhook:   { type: string }
+        notify_email:     { type: string }
+        fields:
+          type: array
+          items: { $ref: '#/components/schemas/FormField' }
+
+    Vault:
+      type: object
+      properties:
+        id:              { type: string, format: uuid }
+        name:            { type: string }
+        description:     { type: string }
+        vault_file_name: { type: string }
+        created_at:      { type: string, format: date-time }
+
+    VaultCreate:
+      type: object
+      required: [name, password]
+      properties:
+        name:        { type: string }
+        description: { type: string }
+        password:    { type: string, description: Ansible Vault password (AES-256 encrypted at rest) }
+
+    VaultUpdate:
+      type: object
+      required: [name]
+      properties:
+        name:        { type: string }
+        description: { type: string }
+        password:    { type: string, description: Leave blank to keep existing password }
+
+    Run:
+      type: object
+      properties:
+        id:          { type: string, format: uuid }
+        form_id:     { type: string, format: uuid, nullable: true }
+        playbook_id: { type: string, format: uuid }
+        server_id:   { type: string, format: uuid }
+        variables:   { type: string, description: JSON-encoded variable map }
+        status:      { type: string, enum: [pending, running, success, failed] }
+        output:      { type: string }
+        batch_id:    { type: string, format: uuid, nullable: true }
+        started_at:  { type: string, format: date-time, nullable: true }
+        finished_at: { type: string, format: date-time, nullable: true }
+
+    RunCreate:
+      type: object
+      required: [form_id]
+      properties:
+        form_id:   { type: string, format: uuid }
+        variables: { type: object, additionalProperties: true }
+
+    RunResponse:
+      type: object
+      properties:
+        run_id:   { type: string, format: uuid, description: Present for single-server runs }
+        batch_id: { type: string, format: uuid, description: Present for server-group batch runs }
+        run_ids:  { type: array, items: { type: string, format: uuid }, description: Individual run IDs in a batch }
+        status:   { type: string, enum: [pending] }
+
+    AuditLog:
+      type: object
+      properties:
+        id:          { type: string, format: uuid }
+        user_id:     { type: string }
+        username:    { type: string }
+        action:      { type: string, example: create }
+        resource:    { type: string, example: form }
+        resource_id: { type: string, format: uuid }
+        details:     { type: string }
+        ip:          { type: string }
+        created_at:  { type: string, format: date-time }
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Insufficient role
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    limit:
+      name: limit
+      in: query
+      schema: { type: integer, default: 50 }
+    offset:
+      name: offset
+      in: query
+      schema: { type: integer, default: 0 }
+
+# ── Paths ──────────────────────────────────────────────────────────────────────
+
+paths:
+
+  # ── Auth ────────────────────────────────────────────────────────────────────
+
+  /auth/login:
+    post:
+      summary: Log in and obtain a JWT
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AuthRequest' }
+      responses:
+        "200":
+          description: Successful login
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /auth/logout:
+    post:
+      summary: Invalidate the current session token
+      tags: [Auth]
+      responses:
+        "200":
+          description: Logged out
+        "401": { $ref: '#/components/responses/Unauthorized' }
+
+  # ── Users ────────────────────────────────────────────────────────────────────
+
+  /users:
+    get:
+      summary: List all users
+      tags: [Users]
+      responses:
+        "200":
+          description: User list
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/User' } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+    post:
+      summary: Create a user *(admin)*
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserCreate' }
+      responses:
+        "201":
+          description: Created user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+
+  /users/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/id' }
+    put:
+      summary: Update a user *(admin)*
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserUpdate' }
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
+    delete:
+      summary: Delete a user *(admin)*
+      tags: [Users]
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+
+  # ── Servers ──────────────────────────────────────────────────────────────────
+
+  /servers:
+    get:
+      summary: List all servers
+      tags: [Servers]
+      responses:
+        "200":
+          description: Server list (SSH keys omitted)
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Server' } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+    post:
+      summary: Create a server *(admin)*
+      tags: [Servers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ServerWrite' }
+      responses:
+        "201":
+          description: Created server
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Server' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+
+  /servers/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/id' }
+    get:
+      summary: Get a server
+      tags: [Servers]
+      responses:
+        "200":
+          description: Server object
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Server' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "404": { $ref: '#/components/responses/NotFound' }
+    put:
+      summary: Update a server *(admin)*
+      tags: [Servers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ServerWrite' }
+      responses:
+        "200":
+          description: Updated server
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Server' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
+    delete:
+      summary: Delete a server *(admin)*
+      tags: [Servers]
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+
+  /servers/{id}/test:
+    parameters:
+      - { $ref: '#/components/parameters/id' }
+    post:
+      summary: Test SSH connectivity to a server
+      tags: [Servers]
+      responses:
+        "200":
+          description: Test result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "404": { $ref: '#/components/responses/NotFound' }
+
+  # ── Server Groups ─────────────────────────────────────────────────────────────
+
+  /server-groups:
+    get:
+      summary: List all server groups
+      tags: [Server Groups]
+      responses:
+        "200":
+          description: Group list
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/ServerGroup' } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+    post:
+      summary: Create a server group *(admin)*
+      tags: [Server Groups]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ServerGroupWrite' }
+      responses:
+        "201":
+          description: Created group
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServerGroup' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+
+  /server-groups/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/id' }
+    get:
+      summary: Get a server group
+      tags: [Server Groups]
+      responses:
+        "200":
+          description: Group
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServerGroup' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "404": { $ref: '#/components/responses/NotFound' }
+    put:
+      summary: Update a server group *(admin)*
+      tags: [Server Groups]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ServerGroupWrite' }
+      responses:
+        "200":
+          description: Updated group
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServerGroup' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
+    delete:
+      summary: Delete a server group *(admin)*
+      tags: [Server Groups]
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+
+  /server-groups/{id}/members:
+    parameters:
+      - { $ref: '#/components/parameters/id' }
+    get:
+      summary: List member servers of a group
+      tags: [Server Groups]
+      responses:
+        "200":
+          description: Member servers (SSH keys omitted)
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Server' } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+    put:
+      summary: Replace member servers of a group *(admin)*
+      tags: [Server Groups]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SetMembersRequest' }
+      responses:
+        "204": { description: Members updated }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+
+  # ── Playbooks ─────────────────────────────────────────────────────────────────
+
+  /playbooks:
+    get:
+      summary: List all playbooks
+      tags: [Playbooks]
+      responses:
+        "200":
+          description: Playbook list
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Playbook' } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+    post:
+      summary: Upload a playbook YAML *(admin)*
+      tags: [Playbooks]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [name, file]
+              properties:
+                name:        { type: string }
+                description: { type: string }
+                file:        { type: string, format: binary }
+      responses:
+        "201":
+          description: Uploaded playbook
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Playbook' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+
+  /playbooks/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/id' }
+    get:
+      summary: Get a playbook
+      tags: [Playbooks]
+      responses:
+        "200":
+          description: Playbook
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Playbook' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "404": { $ref: '#/components/responses/NotFound' }
+    delete:
+      summary: Delete a playbook *(admin)*
+      tags: [Playbooks]
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+
+  # ── Forms ─────────────────────────────────────────────────────────────────────
+
+  /forms:
+    get:
+      summary: List all forms
+      tags: [Forms]
+      responses:
+        "200":
+          description: Form list (with computed next_run_at)
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Form' } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+    post:
+      summary: Create a form *(editor)*
+      tags: [Forms]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FormWrite' }
+      responses:
+        "201":
+          description: Created form
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Form' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+
+  /forms/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/id' }
+    get:
+      summary: Get a form (including fields)
+      tags: [Forms]
+      responses:
+        "200":
+          description: Form with fields
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Form' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "404": { $ref: '#/components/responses/NotFound' }
+    put:
+      summary: Update a form *(editor)*
+      tags: [Forms]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FormWrite' }
+      responses:
+        "200":
+          description: Updated form
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Form' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
+    delete:
+      summary: Delete a form *(editor)*
+      tags: [Forms]
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+
+  /forms/{id}/fields:
+    parameters:
+      - { $ref: '#/components/parameters/id' }
+    get:
+      summary: Get a form's fields
+      tags: [Forms]
+      responses:
+        "200":
+          description: Field list
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/FormField' } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+
+  /forms/{id}/image:
+    parameters:
+      - { $ref: '#/components/parameters/id' }
+    get:
+      summary: Get the form's quick-action image (no auth required)
+      tags: [Forms]
+      security: []
+      responses:
+        "200":
+          description: Image file
+          content:
+            image/*:
+              schema: { type: string, format: binary }
+        "404": { $ref: '#/components/responses/NotFound' }
+    post:
+      summary: Upload a quick-action image *(editor)*
+      tags: [Forms]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200":
+          description: Updated form
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Form' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+    delete:
+      summary: Remove the quick-action image *(editor)*
+      tags: [Forms]
+      responses:
+        "200":
+          description: Updated form
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Form' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+
+  /forms/{id}/webhook-token:
+    parameters:
+      - { $ref: '#/components/parameters/id' }
+    post:
+      summary: Regenerate the webhook token *(editor)*
+      tags: [Forms]
+      responses:
+        "200":
+          description: Updated form with new token
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Form' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+    delete:
+      summary: Revoke the webhook token *(editor)*
+      tags: [Forms]
+      responses:
+        "200":
+          description: Updated form with empty token
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Form' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+
+  /quick-actions:
+    get:
+      summary: List quick-action forms (all authenticated users)
+      tags: [Forms]
+      responses:
+        "200":
+          description: Quick-action forms
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Form' } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+
+  # ── Vaults ───────────────────────────────────────────────────────────────────
+
+  /vaults:
+    get:
+      summary: List all vaults
+      tags: [Vaults]
+      responses:
+        "200":
+          description: Vault list (passwords never returned)
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Vault' } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+    post:
+      summary: Create a vault *(admin)*
+      tags: [Vaults]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VaultCreate' }
+      responses:
+        "201":
+          description: Created vault
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Vault' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+
+  /vaults/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/id' }
+    get:
+      summary: Get a vault
+      tags: [Vaults]
+      responses:
+        "200":
+          description: Vault
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Vault' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "404": { $ref: '#/components/responses/NotFound' }
+    put:
+      summary: Update a vault *(admin)*
+      tags: [Vaults]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VaultUpdate' }
+      responses:
+        "200":
+          description: Updated vault
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Vault' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
+    delete:
+      summary: Delete a vault *(admin)*
+      tags: [Vaults]
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+
+  /vaults/{id}/upload:
+    parameters:
+      - { $ref: '#/components/parameters/id' }
+    post:
+      summary: Upload an encrypted vault file *(admin)*
+      tags: [Vaults]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200":
+          description: Updated vault
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Vault' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+
+  /vaults/{id}/file:
+    parameters:
+      - { $ref: '#/components/parameters/id' }
+    delete:
+      summary: Remove the vault file *(admin)*
+      tags: [Vaults]
+      responses:
+        "200":
+          description: Updated vault
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Vault' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+
+  # ── Runs ─────────────────────────────────────────────────────────────────────
+
+  /runs:
+    get:
+      summary: List runs (newest first, paginated)
+      tags: [Runs]
+      parameters:
+        - { $ref: '#/components/parameters/limit' }
+        - { $ref: '#/components/parameters/offset' }
+      responses:
+        "200":
+          description: Run list
+          headers:
+            X-Total-Count:
+              schema: { type: integer }
+              description: Total number of runs
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Run' } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+    post:
+      summary: Trigger a run from a form
+      tags: [Runs]
+      description: |
+        For forms with a single `server_id`, returns `{ run_id, status }`.
+        For forms with a `server_group_id`, returns `{ batch_id, run_ids, status }` —
+        one run is created per member server.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RunCreate' }
+      responses:
+        "202":
+          description: Run(s) accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RunResponse' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "404": { $ref: '#/components/responses/NotFound' }
+
+  /runs/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/id' }
+    get:
+      summary: Get a run
+      tags: [Runs]
+      responses:
+        "200":
+          description: Run
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Run' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "404": { $ref: '#/components/responses/NotFound' }
+
+  /runs/{id}/cancel:
+    parameters:
+      - { $ref: '#/components/parameters/id' }
+    post:
+      summary: Cancel an in-progress run
+      tags: [Runs]
+      responses:
+        "204": { description: Cancelled }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "404":
+          description: Run not currently in progress
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /runs/{id}/stream:
+    parameters:
+      - { $ref: '#/components/parameters/id' }
+      - name: token
+        in: query
+        description: JWT token (required because EventSource cannot set headers)
+        schema: { type: string }
+    get:
+      summary: Stream run output as Server-Sent Events
+      tags: [Runs]
+      security: []
+      responses:
+        "200":
+          description: |
+            SSE stream. Each `data:` line is one line of Ansible output.
+            When the run finishes an `event: done` message is sent with the
+            final status (`success` or `failed`) as the data payload.
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "404": { $ref: '#/components/responses/NotFound' }
+
+  # ── Webhook ───────────────────────────────────────────────────────────────────
+
+  /webhook/forms/{token}:
+    parameters:
+      - name: token
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      summary: Trigger a form run via webhook token (no auth)
+      tags: [Webhook]
+      security: []
+      description: |
+        The `token` acts as the credential. Pass an optional JSON body to override
+        field default values. For server-group forms returns `batch_id` + `run_ids`.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              description: Variable overrides (optional)
+      responses:
+        "202":
+          description: Run(s) accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RunResponse' }
+        "404":
+          description: Invalid webhook token
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  # ── Audit ─────────────────────────────────────────────────────────────────────
+
+  /audit:
+    get:
+      summary: List audit log entries *(admin)*
+      tags: [Audit]
+      parameters:
+        - { $ref: '#/components/parameters/limit' }
+        - { $ref: '#/components/parameters/offset' }
+      responses:
+        "200":
+          description: Audit entries (newest first)
+          headers:
+            X-Total-Count:
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/AuditLog' } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+
+  # ── Health ────────────────────────────────────────────────────────────────────
+
+  /healthz:
+    servers:
+      - url: /
+        description: Root (not /api prefix)
+    get:
+      summary: Health check
+      tags: [Health]
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
