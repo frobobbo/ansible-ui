@@ -37,7 +37,7 @@
 	async function load() {
 		loading = true;
 		try { list = await serversApi.list(); }
-		catch { error = 'Failed to load servers'; }
+		catch { error = 'Failed to load job runners'; }
 		finally { loading = false; }
 	}
 
@@ -85,7 +85,7 @@
 				await serversApi.create(payload);
 			}
 			showModal = false;
-			toast.success(editingId ? 'Server updated' : 'Server added');
+			toast.success(editingId ? 'Job Runner updated' : 'Job Runner added');
 			await load();
 		} catch (err) {
 			formError = err instanceof ApiError ? err.message : 'Save failed';
@@ -95,11 +95,11 @@
 	}
 
 	async function remove(id: string) {
-		if (!(await confirmDialog('Delete this server?'))) return;
+		if (!(await confirmDialog('Delete this job runner?'))) return;
 		try {
 			await serversApi.delete(id);
 			await load();
-			toast.success('Server deleted');
+			toast.success('Job Runner deleted');
 		} catch {
 			toast.error('Delete failed');
 		}
@@ -119,11 +119,11 @@
 </script>
 
 <div class="page-header">
-	<h1>Servers</h1>
+	<h1>Job Runners</h1>
 	<div class="header-right">
-		<input class="form-control search" placeholder="Search servers..." bind:value={filter} />
+		<input class="form-control search" placeholder="Search job runners..." bind:value={filter} />
 		{#if $isAdmin}
-			<button class="btn btn-primary" onclick={openCreate}>+ Add Server</button>
+			<button class="btn btn-primary" onclick={openCreate}>+ Add Job Runner</button>
 		{/if}
 	</div>
 </div>
@@ -133,9 +133,9 @@
 {#if loading}
 	<p class="empty-state">Loading...</p>
 {:else if list.length === 0}
-	<div class="empty-state">No servers configured. {#if $isAdmin}Add one to get started.{/if}</div>
+	<div class="empty-state">No job runners configured. {#if $isAdmin}Add one to get started.{/if}</div>
 {:else if filtered.length === 0}
-	<div class="empty-state">No servers match "{filter}".</div>
+	<div class="empty-state">No job runners match "{filter}".</div>
 {:else}
 	<div class="card" style="padding:0">
 		<table class="table">
@@ -184,7 +184,7 @@
 {#if showModal}
 	<div class="modal-overlay" onclick={() => showModal = false} role="presentation">
 		<div class="modal" onclick={(e) => e.stopPropagation()} role="dialog">
-			<h2>{editingId ? 'Edit Server' : 'Add Server'}</h2>
+			<h2>{editingId ? 'Edit Job Runner' : 'Add Job Runner'}</h2>
 			{#if formError}<div class="alert alert-error">{formError}</div>{/if}
 			<form onsubmit={(e) => { e.preventDefault(); save(); }} autocomplete="off">
 

@@ -33,7 +33,7 @@
 {#if loading}
 	<p class="empty-state">Loading...</p>
 {:else if list.length === 0}
-	<div class="empty-state">No server groups yet. Create one to run playbooks across multiple servers.</div>
+	<div class="empty-state">No server groups yet. Create one to run playbooks across multiple job runners.</div>
 {:else}
 	<div class="card" style="padding:0">
 		<table class="table">

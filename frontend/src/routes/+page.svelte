@@ -52,7 +52,7 @@
 		<div class="stat-grid">
 			<a href="/servers" class="stat-card">
 				<div class="stat-value">{serverCount}</div>
-				<div class="stat-label">Servers</div>
+				<div class="stat-label">Job Runners</div>
 			</a>
 			<a href="/playbooks" class="stat-card">
 				<div class="stat-value">{playbookCount}</div>

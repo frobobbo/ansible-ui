@@ -98,13 +98,13 @@
 
 	<div class="card">
 		<div class="card-header-row">
-			<h2>Member Servers</h2>
+			<h2>Member Job Runners</h2>
 			<button class="btn btn-primary btn-sm" onclick={saveMembers} disabled={savingMembers}>
 				{savingMembers ? 'Saving...' : 'Save Members'}
 			</button>
 		</div>
 		{#if allServers.length === 0}
-			<p class="empty-state" style="padding:0.5rem 0">No servers configured yet.</p>
+			<p class="empty-state" style="padding:0.5rem 0">No job runners configured yet.</p>
 		{:else}
 			<div class="member-list">
 				{#each allServers as sv}
@@ -116,7 +116,7 @@
 				{/each}
 			</div>
 			<p class="hint" style="margin-top:0.75rem">
-				{members.length} of {allServers.length} servers selected. Running a form with this group will create one run per selected server.
+				{members.length} of {allServers.length} servers selected. Running a form with this group will create one run per selected job runner.
 			</p>
 		{/if}
 	</div>

@@ -40,7 +40,7 @@
 				<input class="form-control" bind:value={description} />
 			</div>
 		</div>
-		<p class="hint" style="margin-top:0.5rem">After creating the group, edit it to add member servers.</p>
+		<p class="hint" style="margin-top:0.5rem">After creating the group, edit it to add member job runners.</p>
 	</div>
 
 	<div class="actions" style="justify-content:flex-end">
