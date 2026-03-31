@@ -14,6 +14,10 @@ import (
 
 func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUploadDir string, formImageDir string, jwtSecret string, runsH *RunsHandler, sched *scheduler.Scheduler) *gin.Engine {
 	r := gin.Default()
+	// Disable automatic redirects that generate http:// Location headers when
+	// the app runs behind an SSL-terminating reverse proxy (e.g. Nginx Proxy Manager).
+	r.RedirectTrailingSlash = false
+	r.RedirectFixedPath = false
 
 	// CORS middleware
 	r.Use(func(c *gin.Context) {
