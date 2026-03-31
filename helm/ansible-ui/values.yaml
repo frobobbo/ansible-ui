@@ -99,5 +99,13 @@ securityContext: {}
   # runAsUser: 1000
 
 serviceAccount:
-  create: false
+  # Create a dedicated ServiceAccount for the app.
+  # Set to false to use the namespace default ServiceAccount instead.
+  create: true
   name: ""
+
+rbac:
+  # Create a Role + RoleBinding granting the app permission to manage
+  # Kubernetes Jobs, ConfigMaps, Secrets, and Pod logs — required for
+  # the Container (Execution Environment) runner.
+  create: true
