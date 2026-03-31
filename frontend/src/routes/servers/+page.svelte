@@ -17,9 +17,9 @@
 			? list.filter(
 					(s) =>
 						s.name.toLowerCase().includes(filter.toLowerCase()) ||
-						s.host.toLowerCase().includes(filter.toLowerCase()) ||
-						s.username.toLowerCase().includes(filter.toLowerCase()) ||
-						s.execution_environment.toLowerCase().includes(filter.toLowerCase())
+						(s.host ?? '').toLowerCase().includes(filter.toLowerCase()) ||
+						(s.username ?? '').toLowerCase().includes(filter.toLowerCase()) ||
+						(s.execution_environment ?? '').toLowerCase().includes(filter.toLowerCase())
 				)
 			: list
 	);
@@ -27,11 +27,10 @@
 	// Modal state
 	let showModal = $state(false);
 	let editingId = $state<string | null>(null);
+	let serverType = $state<'server' | 'container'>('server');
 	let form = $state({ name: '', host: '', port: 22, username: '', ssh_private_key: '', pre_command: '', execution_environment: '' });
 	let saving = $state(false);
 	let formError = $state('');
-
-	let isEE = $derived(form.execution_environment.trim() !== '');
 
 	onMount(async () => { await load(); });
 
@@ -44,6 +43,7 @@
 
 	function openCreate() {
 		editingId = null;
+		serverType = 'server';
 		form = { name: '', host: '', port: 22, username: '', ssh_private_key: '', pre_command: '', execution_environment: '' };
 		formError = '';
 		showModal = true;
@@ -51,6 +51,7 @@
 
 	function openEdit(sv: Server) {
 		editingId = sv.id;
+		serverType = sv.execution_environment ? 'container' : 'server';
 		form = {
 			name: sv.name,
 			host: sv.host,
@@ -67,11 +68,21 @@
 	async function save() {
 		saving = true;
 		formError = '';
+		// Clear irrelevant fields before submitting
+		const payload = { ...form };
+		if (serverType === 'container') {
+			payload.host = '';
+			payload.username = '';
+			payload.ssh_private_key = '';
+			payload.port = 0;
+		} else {
+			payload.execution_environment = '';
+		}
 		try {
 			if (editingId) {
-				await serversApi.update(editingId, form);
+				await serversApi.update(editingId, payload);
 			} else {
-				await serversApi.create(form);
+				await serversApi.create(payload);
 			}
 			showModal = false;
 			toast.success(editingId ? 'Server updated' : 'Server added');
@@ -135,9 +146,9 @@
 						<td><strong>{sv.name}</strong></td>
 						<td>
 							{#if sv.execution_environment}
-								<span class="badge badge-ee">EE</span>
+								<span class="badge badge-ee">Container</span>
 							{:else}
-								<span class="badge badge-ssh">SSH</span>
+								<span class="badge badge-ssh">Server</span>
 							{/if}
 						</td>
 						<td class="target-cell">
@@ -176,50 +187,63 @@
 			<h2>{editingId ? 'Edit Server' : 'Add Server'}</h2>
 			{#if formError}<div class="alert alert-error">{formError}</div>{/if}
 			<form onsubmit={(e) => { e.preventDefault(); save(); }} autocomplete="off">
+
 				<div class="form-group">
 					<label>Name</label>
 					<input class="form-control" bind:value={form.name} required />
 				</div>
 
 				<div class="form-group">
-					<label>Execution Environment Image <span class="hint-inline">(optional — leave blank to use SSH)</span></label>
-					<input class="form-control" bind:value={form.execution_environment}
-						placeholder="ghcr.io/ansible/community-general-ee:latest" />
-					<small class="hint">A container image (GitHub Container Registry, Docker Hub, etc.) with ansible-playbook installed. When set, the playbook runs inside a Kubernetes Job using this image instead of connecting via SSH.</small>
+					<label>Server Type</label>
+					<div class="radio-group">
+						<label class="radio-option" class:selected={serverType === 'server'}>
+							<input type="radio" bind:group={serverType} value="server" />
+							Server
+						</label>
+						<label class="radio-option" class:selected={serverType === 'container'}>
+							<input type="radio" bind:group={serverType} value="container" />
+							Container
+						</label>
+					</div>
 				</div>
 
-				{#if !isEE}
-					<div class="ssh-section">
-						<div class="grid-2">
-							<div class="form-group">
-								<label>Host / IP</label>
-								<input class="form-control" bind:value={form.host} required={!isEE} />
-							</div>
-							<div class="form-group">
-								<label>Port</label>
-								<input class="form-control" type="number" bind:value={form.port} min="1" max="65535" />
-							</div>
-							<div class="form-group">
-								<label>SSH Username</label>
-								<input class="form-control" bind:value={form.username} required={!isEE} />
-							</div>
+				{#if serverType === 'container'}
+					<div class="form-group">
+						<label>Image</label>
+						<input class="form-control" bind:value={form.execution_environment} required
+							placeholder="ghcr.io/ansible/community-general-ee:latest" />
+						<small class="hint">A container image with ansible-playbook installed. The playbook runs inside a Kubernetes Job using this image.</small>
+					</div>
+				{:else}
+					<div class="grid-2">
+						<div class="form-group">
+							<label>Host / IP</label>
+							<input class="form-control" bind:value={form.host} required />
 						</div>
 						<div class="form-group">
-							<label>SSH Private Key (PEM){editingId ? ' — leave blank to keep existing' : ''}</label>
-							<textarea class="form-control" bind:value={form.ssh_private_key} rows="8"
-								placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"
-								required={!editingId && !isEE}></textarea>
+							<label>Port</label>
+							<input class="form-control" type="number" bind:value={form.port} min="1" max="65535" />
 						</div>
+						<div class="form-group">
+							<label>SSH Username</label>
+							<input class="form-control" bind:value={form.username} required />
+						</div>
+					</div>
+					<div class="form-group">
+						<label>SSH Private Key (PEM){editingId ? ' — leave blank to keep existing' : ''}</label>
+						<textarea class="form-control" bind:value={form.ssh_private_key} rows="8"
+							placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"
+							required={!editingId}></textarea>
 					</div>
 				{/if}
 
 				<div class="form-group">
 					<label>Pre-run Command <span class="hint-inline">(optional)</span></label>
 					<input class="form-control" bind:value={form.pre_command}
-						placeholder={isEE ? 'e.g. pip install -r requirements.txt' : 'e.g. . /home/user/ansible/bin/activate'} />
+						placeholder={serverType === 'container' ? 'e.g. pip install -r requirements.txt' : 'e.g. . /home/user/ansible/bin/activate'} />
 					<small class="hint">
-						{#if isEE}
-							Runs inside the container before ansible-playbook (e.g. install extra collections).
+						{#if serverType === 'container'}
+							Runs inside the container before ansible-playbook.
 						{:else}
 							Runs on the remote host before ansible-playbook (e.g. activate a virtualenv).
 						{/if}
@@ -247,6 +271,24 @@
 	.badge-ssh { background: var(--border); color: var(--text-muted); }
 	.badge-ee  { background: #dbeafe; color: #1d4ed8; }
 	.hint-inline { font-weight: normal; font-size: 0.8rem; color: var(--text-muted); }
+	.radio-group { display: flex; gap: 0.75rem; }
+	.radio-option {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.5rem 1rem;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		cursor: pointer;
+		font-weight: normal;
+		transition: border-color 0.15s, background 0.15s;
+	}
+	.radio-option.selected {
+		border-color: var(--primary);
+		background: color-mix(in srgb, var(--primary) 8%, transparent);
+		font-weight: 500;
+	}
+	.radio-option input[type="radio"] { accent-color: var(--primary); }
 	.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
 	.modal { background: white; border-radius: var(--radius); padding: 2rem; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
 </style>
