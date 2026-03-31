@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import { authStore } from './stores';
-import type { AuditLog, AuthResponse, Form, FormField, Playbook, Run, Server, ServerGroup, User, Vault } from './types';
+import type { AuditLog, AuthResponse, Form, FormField, Playbook, Run, Server, ServerGroup, SSHCert, User, Vault } from './types';
 
 export class ApiError extends Error {
 	constructor(public status: number, message: string) {
@@ -154,6 +154,22 @@ export const vaults = {
 		return request<Vault>(`/vaults/${id}/upload`, { method: 'POST', body: fd });
 	},
 	deleteFile: (id: string) => request<Vault>(`/vaults/${id}/file`, { method: 'DELETE' }),
+};
+
+export const sshCerts = {
+	list: () => request<SSHCert[]>('/ssh-certs'),
+	get: (id: string) => request<SSHCert>(`/ssh-certs/${id}`),
+	create: (data: { name: string; description: string }) =>
+		request<SSHCert>('/ssh-certs', { method: 'POST', body: JSON.stringify(data) }),
+	update: (id: string, data: { name: string; description: string }) =>
+		request<SSHCert>(`/ssh-certs/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+	delete: (id: string) => request<void>(`/ssh-certs/${id}`, { method: 'DELETE' }),
+	uploadFile: (id: string, file: File) => {
+		const fd = new FormData();
+		fd.append('file', file);
+		return request<SSHCert>(`/ssh-certs/${id}/upload`, { method: 'POST', body: fd });
+	},
+	deleteFile: (id: string) => request<SSHCert>(`/ssh-certs/${id}/file`, { method: 'DELETE' }),
 };
 
 export const audit = {

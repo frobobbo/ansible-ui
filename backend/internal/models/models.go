@@ -50,6 +50,14 @@ type Vault struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
+type SSHCert struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	FileName    string    `json:"file_name"` // original filename; empty if no cert uploaded
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 type ServerGroup struct {
 	ID          string    `json:"id"`
 	Name        string    `json:"name"`

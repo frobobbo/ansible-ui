@@ -49,6 +49,14 @@ export interface Vault {
 	created_at: string;
 }
 
+export interface SSHCert {
+	id: string;
+	name: string;
+	description: string;
+	file_name: string; // empty string if no cert uploaded
+	created_at: string;
+}
+
 export interface ServerGroup {
 	id: string;
 	name: string;

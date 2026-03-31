@@ -51,8 +51,11 @@ func main() {
 		}
 	}
 
+	// SSH Certs handler
+	sshCertsH := api.NewSSHCertsHandler(db.SSHCerts(jwtSecret), db.Audit())
+
 	// Router
-	router := api.NewRouter(db, jwtSvc, "./data/playbooks", "./data/vaults", "./data/form-images", jwtSecret, runsH, sched)
+	router := api.NewRouter(db, jwtSvc, "./data/playbooks", "./data/vaults", "./data/form-images", jwtSecret, runsH, sched, sshCertsH)
 
 	port := os.Getenv("PORT")
 	if port == "" {

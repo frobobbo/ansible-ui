@@ -94,6 +94,14 @@ func New(dsn string) (*DB, error) {
 	}
 	db.Exec("ALTER TABLE runs ADD COLUMN batch_id TEXT")
 	db.Exec("ALTER TABLE servers ADD COLUMN execution_environment TEXT NOT NULL DEFAULT ''")
+	db.Exec(`CREATE TABLE IF NOT EXISTS ssh_certs (
+		id          TEXT PRIMARY KEY,
+		name        TEXT NOT NULL,
+		description TEXT NOT NULL DEFAULT '',
+		file_name   TEXT NOT NULL DEFAULT '',
+		cert_enc    TEXT NOT NULL DEFAULT '',
+		created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	)`)
 
 	// Migrate users table to add 'editor' role — SQLite CHECK constraints require
 	// a full table rebuild; check sqlite_master to avoid re-running on every start.
@@ -151,6 +159,9 @@ func (db *DB) Audit() *AuditStore              { return &AuditStore{db: db.conn}
 func (db *DB) ServerGroups() *ServerGroupStore { return &ServerGroupStore{db: db.conn} }
 func (db *DB) Vaults(secret string) *VaultStore {
 	return newVaultStore(db.conn, secret)
+}
+func (db *DB) SSHCerts(secret string) *SSHCertStore {
+	return newSSHCertStore(db.conn, secret)
 }
 
 // scanUser scans a user row (without password_hash by default)

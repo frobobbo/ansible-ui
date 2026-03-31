@@ -109,14 +109,6 @@
 							</svg>
 							Playbooks
 						</a>
-						<a href="/vaults" class="nav-link" class:active={$page.url.pathname.startsWith('/vaults')}>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-								<rect x="3" y="11" width="18" height="11" rx="2"/>
-								<path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-								<circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"/>
-							</svg>
-							Vaults
-						</a>
 						<a href="/server-groups" class="nav-link" class:active={$page.url.pathname.startsWith('/server-groups')}>
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 								<rect x="2" y="3" width="20" height="5" rx="1"/>
@@ -127,6 +119,27 @@
 								<circle cx="6" cy="12.5" r="1" fill="currentColor" stroke="none"/>
 							</svg>
 							Server Groups
+						</a>
+					</div>
+
+					<div class="nav-group">
+						<div class="nav-group-label">Secrets</div>
+						<a href="/vaults" class="nav-link" class:active={$page.url.pathname.startsWith('/vaults')}>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<rect x="3" y="11" width="18" height="11" rx="2"/>
+								<path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+								<circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"/>
+							</svg>
+							Vaults
+						</a>
+						<a href="/ssh-certs" class="nav-link" class:active={$page.url.pathname.startsWith('/ssh-certs')}>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<circle cx="8" cy="15" r="4"/>
+								<line x1="11.5" y1="11.5" x2="20" y2="3"/>
+								<line x1="17" y1="7" x2="20" y2="4"/>
+								<line x1="15" y1="9" x2="17" y2="11"/>
+							</svg>
+							SSH Certs
 						</a>
 					</div>
 				{/if}

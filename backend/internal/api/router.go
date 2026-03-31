@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUploadDir string, formImageDir string, jwtSecret string, runsH *RunsHandler, sched *scheduler.Scheduler) *gin.Engine {
+func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUploadDir string, formImageDir string, jwtSecret string, runsH *RunsHandler, sched *scheduler.Scheduler, sshCertsH *SSHCertsHandler) *gin.Engine {
 	r := gin.Default()
 	// Disable automatic redirects that generate http:// Location headers when
 	// the app runs behind an SSL-terminating reverse proxy (e.g. Nginx Proxy Manager).
@@ -115,6 +115,15 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 			protected.DELETE("/vaults/:id", auth.RequireAdmin, vaultsH.Delete)
 			protected.POST("/vaults/:id/upload", auth.RequireAdmin, vaultsH.UploadFile)
 			protected.DELETE("/vaults/:id/file", auth.RequireAdmin, vaultsH.DeleteFile)
+
+			// SSH Certs (admin-only writes; cert bytes never touch the filesystem)
+			protected.GET("/ssh-certs", sshCertsH.List)
+			protected.GET("/ssh-certs/:id", sshCertsH.Get)
+			protected.POST("/ssh-certs", auth.RequireAdmin, sshCertsH.Create)
+			protected.PUT("/ssh-certs/:id", auth.RequireAdmin, sshCertsH.Update)
+			protected.DELETE("/ssh-certs/:id", auth.RequireAdmin, sshCertsH.Delete)
+			protected.POST("/ssh-certs/:id/upload", auth.RequireAdmin, sshCertsH.Upload)
+			protected.DELETE("/ssh-certs/:id/file", auth.RequireAdmin, sshCertsH.DeleteFile)
 
 			// Runs
 			protected.GET("/runs", runsH.List)
