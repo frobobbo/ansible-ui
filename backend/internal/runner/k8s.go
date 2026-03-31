@@ -82,6 +82,7 @@ func (r *K8sRunner) RunPlaybook(
 	runID string,
 	image string,
 	playbookContent []byte,
+	inventoryTarget string,
 	variables map[string]interface{},
 	preCommand string,
 	vaultPassword string,
@@ -129,6 +130,10 @@ func (r *K8sRunner) RunPlaybook(
 	}
 	varStr := strings.ReplaceAll(string(varJSON), "'", `'"'"'`)
 	ansibleCmd := fmt.Sprintf("ansible-playbook /ansible/playbook.yml --extra-vars '%s'", varStr)
+	if inventoryTarget != "" {
+		invTarget := strings.ReplaceAll(inventoryTarget, "'", `'"'"'`)
+		ansibleCmd = fmt.Sprintf("ansible-playbook /ansible/playbook.yml -i '%s,' --extra-vars '%s'", invTarget, varStr)
+	}
 	if vaultPassword != "" {
 		ansibleCmd += " --vault-password-file /ansible-vault/password"
 	}

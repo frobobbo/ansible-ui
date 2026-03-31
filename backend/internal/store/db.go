@@ -92,6 +92,7 @@ func New(dsn string) (*DB, error) {
 		db.Exec("PRAGMA foreign_keys = ON")
 		db.Exec("PRAGMA legacy_alter_table = OFF")
 	}
+	db.Exec(`ALTER TABLE forms ADD COLUMN host_id TEXT REFERENCES hosts(id) ON DELETE SET NULL`)
 	db.Exec("ALTER TABLE runs ADD COLUMN batch_id TEXT")
 	db.Exec("ALTER TABLE servers ADD COLUMN execution_environment TEXT NOT NULL DEFAULT ''")
 	db.Exec(`CREATE TABLE IF NOT EXISTS hosts (

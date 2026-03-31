@@ -191,6 +191,7 @@ type formRequest struct {
 	Description     string             `json:"description"`
 	PlaybookID      string             `json:"playbook_id" binding:"required"`
 	ServerID        string             `json:"server_id"`
+	HostID          string             `json:"host_id"`
 	ServerGroupID   string             `json:"server_group_id"`
 	VaultID         *string            `json:"vault_id"`
 	IsQuickAction   bool               `json:"is_quick_action"`
@@ -201,17 +202,25 @@ type formRequest struct {
 	Fields          []models.FormField `json:"fields"`
 }
 
-// parseServerTarget extracts nullable serverID and serverGroupID from a formRequest.
-func parseServerTarget(req formRequest) (serverID *string, serverGroupID *string, err error) {
+// parseFormIDs extracts nullable runner/target IDs from a formRequest.
+// server_id is the Job Runner (always required).
+// Either host_id (single host) or server_group_id (host group) must be provided as the target.
+func parseFormIDs(req formRequest) (serverID *string, hostID *string, serverGroupID *string, err error) {
+	if req.ServerID == "" {
+		return nil, nil, nil, fmt.Errorf("server_id (job runner) is required")
+	}
+	sid := req.ServerID
+	serverID = &sid
+
 	if req.ServerGroupID != "" {
 		sgid := req.ServerGroupID
-		return nil, &sgid, nil
+		return serverID, nil, &sgid, nil
 	}
-	if req.ServerID != "" {
-		sid := req.ServerID
-		return &sid, nil, nil
+	if req.HostID != "" {
+		hid := req.HostID
+		return serverID, &hid, nil, nil
 	}
-	return nil, nil, fmt.Errorf("either server_id or server_group_id is required")
+	return nil, nil, nil, fmt.Errorf("either host_id or server_group_id is required as target")
 }
 
 func (h *FormsHandler) Create(c *gin.Context) {
@@ -226,7 +235,7 @@ func (h *FormsHandler) Create(c *gin.Context) {
 		return
 	}
 
-	serverID, serverGroupID, err := parseServerTarget(req)
+	serverID, hostID, serverGroupID, err := parseFormIDs(req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -237,7 +246,7 @@ func (h *FormsHandler) Create(c *gin.Context) {
 		vaultID = nil
 	}
 
-	f, err := h.forms.Create(req.Name, req.Description, req.PlaybookID, serverID, serverGroupID, vaultID, req.IsQuickAction, req.ScheduleCron, req.ScheduleEnabled, req.NotifyWebhook, req.NotifyEmail, req.Fields)
+	f, err := h.forms.Create(req.Name, req.Description, req.PlaybookID, serverID, hostID, serverGroupID, vaultID, req.IsQuickAction, req.ScheduleCron, req.ScheduleEnabled, req.NotifyWebhook, req.NotifyEmail, req.Fields)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -265,7 +274,7 @@ func (h *FormsHandler) Update(c *gin.Context) {
 		return
 	}
 
-	serverID, serverGroupID, err := parseServerTarget(req)
+	serverID, hostID, serverGroupID, err := parseFormIDs(req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -276,7 +285,7 @@ func (h *FormsHandler) Update(c *gin.Context) {
 		vaultID = nil
 	}
 
-	f, err := h.forms.Update(id, req.Name, req.Description, req.PlaybookID, serverID, serverGroupID, vaultID, req.IsQuickAction, req.ScheduleCron, req.ScheduleEnabled, req.NotifyWebhook, req.NotifyEmail, req.Fields)
+	f, err := h.forms.Update(id, req.Name, req.Description, req.PlaybookID, serverID, hostID, serverGroupID, vaultID, req.IsQuickAction, req.ScheduleCron, req.ScheduleEnabled, req.NotifyWebhook, req.NotifyEmail, req.Fields)
 	if err != nil || f == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "form not found"})
 		return

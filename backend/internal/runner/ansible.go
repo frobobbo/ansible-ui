@@ -28,7 +28,7 @@ type RunResult struct {
 // and passed via --extra-vars "@path" so ansible decrypts it automatically.
 // Lines of output are sent to outputCh as they arrive.
 // The caller must close outputCh after this returns.
-func (c *SSHClient) RunPlaybook(ctx context.Context, playbookPath string, variables map[string]interface{}, preCommand string, vaultPassword string, vaultFileContent []byte, outputCh chan<- string) RunResult {
+func (c *SSHClient) RunPlaybook(ctx context.Context, playbookPath string, variables map[string]interface{}, inventoryTarget string, preCommand string, vaultPassword string, vaultFileContent []byte, outputCh chan<- string) RunResult {
 	varJSON, err := json.Marshal(variables)
 	if err != nil {
 		return RunResult{Err: fmt.Errorf("marshal vars: %w", err)}
@@ -37,6 +37,10 @@ func (c *SSHClient) RunPlaybook(ctx context.Context, playbookPath string, variab
 	// Single-quote the JSON for shell safety; escape any embedded single quotes
 	varStr := strings.ReplaceAll(string(varJSON), "'", `'"'"'`)
 	ansibleCmd := fmt.Sprintf("ansible-playbook '%s' --extra-vars '%s'", playbookPath, varStr)
+	if inventoryTarget != "" {
+		invTarget := strings.ReplaceAll(inventoryTarget, "'", `'"'"'`)
+		ansibleCmd = fmt.Sprintf("ansible-playbook '%s' -i '%s,' --extra-vars '%s'", playbookPath, invTarget, varStr)
+	}
 
 	// Upload vault password to a temp file on remote and add the flag
 	if vaultPassword != "" {

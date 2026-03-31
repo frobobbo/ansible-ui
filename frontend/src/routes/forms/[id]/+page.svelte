@@ -2,16 +2,17 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { forms as formsApi, servers as serversApi, playbooks as playbooksApi, vaults as vaultsApi, serverGroups as sgApi, ApiError } from '$lib/api';
-	import type { Server, ServerGroup, Playbook, Vault, FormField, FieldType } from '$lib/types';
+	import { forms as formsApi, servers as serversApi, playbooks as playbooksApi, vaults as vaultsApi, serverGroups as sgApi, hosts as hostsApi, ApiError } from '$lib/api';
+	import type { Server, ServerGroup, Playbook, Vault, FormField, FieldType, Host } from '$lib/types';
 
 	let id = $derived($page.params.id);
 	let serverList = $state<Server[]>([]);
 	let serverGroupList = $state<ServerGroup[]>([]);
 	let playbookList = $state<Playbook[]>([]);
 	let vaultList = $state<Vault[]>([]);
-	let targetMode = $state<'server' | 'group'>('server');
-	let formData = $state({ name: '', description: '', server_id: '', server_group_id: '', playbook_id: '', vault_id: '', is_quick_action: false, schedule_cron: '', schedule_enabled: false, notify_webhook: '', notify_email: '' });
+	let hostList = $state<Host[]>([]);
+	let targetMode = $state<'host' | 'group'>('host');
+	let formData = $state({ name: '', description: '', runner_id: '', host_id: '', server_group_id: '', playbook_id: '', vault_id: '', is_quick_action: false, schedule_cron: '', schedule_enabled: false, notify_webhook: '', notify_email: '' });
 	let nextRunAt = $state<string | null>(null);
 	let webhookToken = $state('');
 	let imageName = $state('');
@@ -22,20 +23,22 @@
 	let error = $state('');
 
 	onMount(async () => {
-		const [form, svList, sgList, pbList, vList] = await Promise.all([
+		const [form, svList, sgList, pbList, vList, hList] = await Promise.all([
 			formsApi.get(id),
 			serversApi.list(),
 			sgApi.list(),
 			playbooksApi.list(),
-			vaultsApi.list()
+			vaultsApi.list(),
+			hostsApi.list()
 		]);
 		serverList = svList;
 		serverGroupList = sgList;
 		playbookList = pbList;
 		vaultList = vList;
+		hostList = hList;
 		if (form) {
-			targetMode = form.server_group_id ? 'group' : 'server';
-			formData = { name: form.name, description: form.description, server_id: form.server_id ?? '', server_group_id: form.server_group_id ?? '', playbook_id: form.playbook_id, vault_id: form.vault_id ?? '', is_quick_action: form.is_quick_action, schedule_cron: form.schedule_cron ?? '', schedule_enabled: form.schedule_enabled ?? false, notify_webhook: form.notify_webhook ?? '', notify_email: form.notify_email ?? '' };
+			targetMode = form.server_group_id ? 'group' : 'host';
+			formData = { name: form.name, description: form.description, runner_id: form.server_id ?? '', host_id: form.host_id ?? '', server_group_id: form.server_group_id ?? '', playbook_id: form.playbook_id, vault_id: form.vault_id ?? '', is_quick_action: form.is_quick_action, schedule_cron: form.schedule_cron ?? '', schedule_enabled: form.schedule_enabled ?? false, notify_webhook: form.notify_webhook ?? '', notify_email: form.notify_email ?? '' };
 			nextRunAt = form.next_run_at ?? null;
 			webhookToken = form.webhook_token ?? '';
 			imageName = form.image_name;
@@ -66,7 +69,8 @@
 		try {
 			const payload = {
 				...formData,
-				server_id: targetMode === 'server' ? formData.server_id : '',
+				server_id: formData.runner_id,
+				host_id: targetMode === 'host' ? formData.host_id : '',
 				server_group_id: targetMode === 'group' ? formData.server_group_id : '',
 				fields,
 			};
@@ -151,18 +155,26 @@
 					<input class="form-control" bind:value={formData.description} />
 				</div>
 				<div class="form-group">
+					<label>Job Runner</label>
+					<select class="form-control" bind:value={formData.runner_id} required>
+						<option value="">Select job runner...</option>
+						{#each serverList as sv}<option value={sv.id}>{sv.name}</option>{/each}
+					</select>
+					<small class="hint">The server or container that executes ansible-playbook.</small>
+				</div>
+				<div class="form-group">
 					<label>Target</label>
 					<div class="toggle-tabs">
-						<button type="button" class="tab-btn" class:active={targetMode === 'server'} onclick={() => targetMode = 'server'}>Host</button>
+						<button type="button" class="tab-btn" class:active={targetMode === 'host'} onclick={() => targetMode = 'host'}>Host</button>
 						<button type="button" class="tab-btn" class:active={targetMode === 'group'} onclick={() => targetMode = 'group'}>Host Group</button>
 					</div>
 				</div>
 				<div class="form-group">
-					{#if targetMode === 'server'}
+					{#if targetMode === 'host'}
 						<label>Host</label>
-						<select class="form-control" bind:value={formData.server_id} required>
+						<select class="form-control" bind:value={formData.host_id} required>
 							<option value="">Select host...</option>
-							{#each serverList as sv}<option value={sv.id}>{sv.name} ({sv.host})</option>{/each}
+							{#each hostList as h}<option value={h.id}>{h.name} ({h.address})</option>{/each}
 						</select>
 					{:else}
 						<label>Host Group</label>
@@ -170,7 +182,7 @@
 							<option value="">Select group...</option>
 							{#each serverGroupList as g}<option value={g.id}>{g.name}</option>{/each}
 						</select>
-						<small class="hint">Running this form will create one run per server in the group.</small>
+						<small class="hint">Running this form will create one run per host in the group.</small>
 					{/if}
 				</div>
 				<div class="form-group">

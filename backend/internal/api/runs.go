@@ -37,6 +37,7 @@ type RunsHandler struct {
 	serverGroups *store.ServerGroupStore
 	playbooks    *store.PlaybookStore
 	vaults       *store.VaultStore
+	hosts        *store.HostStore
 	audit        *store.AuditStore
 	jwtSvc       *auth.JWTService
 	liveRuns     sync.Map // string -> *liveRun
@@ -49,6 +50,7 @@ func NewRunsHandler(
 	serverGroups *store.ServerGroupStore,
 	playbooks *store.PlaybookStore,
 	vaults *store.VaultStore,
+	hosts *store.HostStore,
 	audit *store.AuditStore,
 	jwtSvc *auth.JWTService,
 ) *RunsHandler {
@@ -59,6 +61,7 @@ func NewRunsHandler(
 		serverGroups: serverGroups,
 		playbooks:    playbooks,
 		vaults:       vaults,
+		hosts:        hosts,
 		audit:        audit,
 		jwtSvc:       jwtSvc,
 	}
@@ -126,11 +129,16 @@ func (h *RunsHandler) Create(c *gin.Context) {
 }
 
 // launchFormRuns creates run records and launches goroutines for a form.
-// For server-group forms it creates one run per member server and returns batchID+runIDs.
-// For single-server forms it returns runID.
+// server_id is always the job runner; host_id or server_group_id is the ansible target.
+// For server-group forms it creates one run per member and returns batchID+runIDs.
+// For single-host (or no explicit target) forms it returns runID.
 func (h *RunsHandler) launchFormRuns(form *models.Form, variables map[string]interface{}) (runID, batchID string, runIDs []string, err error) {
 	varJSON, _ := json.Marshal(variables)
 	fid := form.ID
+
+	if form.ServerID == nil {
+		return "", "", nil, fmt.Errorf("form has no job runner configured")
+	}
 
 	if form.ServerGroupID != nil {
 		members, merr := h.serverGroups.GetMembers(*form.ServerGroupID)
@@ -142,19 +150,16 @@ func (h *RunsHandler) launchFormRuns(form *models.Form, variables map[string]int
 		}
 		bid := uuid.New().String()
 		for _, server := range members {
-			run, rerr := h.runs.Create(&fid, form.PlaybookID, server.ID, string(varJSON), &bid)
+			run, rerr := h.runs.Create(&fid, form.PlaybookID, *form.ServerID, string(varJSON), &bid)
 			if rerr != nil {
 				continue
 			}
 			runIDs = append(runIDs, run.ID)
-			go h.executeRunWithServer(run.ID, form, server, variables)
+			go h.executeRunWithInventory(run.ID, form, server.Host, variables)
 		}
 		return "", bid, runIDs, nil
 	}
 
-	if form.ServerID == nil {
-		return "", "", nil, fmt.Errorf("form has no server configured")
-	}
 	run, rerr := h.runs.Create(&fid, form.PlaybookID, *form.ServerID, string(varJSON), nil)
 	if rerr != nil {
 		return "", "", nil, rerr
@@ -324,24 +329,45 @@ func (h *RunsHandler) Cancel(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// executeRun loads the form's single server then delegates to executeRunWithServer.
+// executeRun loads the form's job runner and optional host target then delegates to executeRunWithInventory.
 func (h *RunsHandler) executeRun(runID string, form *models.Form, variables map[string]interface{}) {
 	if form.ServerID == nil {
-		h.runs.Finish(runID, "failed", "form has no server configured")
+		h.runs.Finish(runID, "failed", "form has no job runner configured")
 		return
 	}
 	server, err := h.servers.Get(*form.ServerID)
 	if err != nil || server == nil {
-		h.runs.Finish(runID, "failed", fmt.Sprintf("server not found: %v", err))
+		h.runs.Finish(runID, "failed", fmt.Sprintf("runner not found: %v", err))
 		return
 	}
-	h.executeRunWithServer(runID, form, server, variables)
+	var inventoryTarget string
+	if form.HostID != nil {
+		host, herr := h.hosts.Get(*form.HostID)
+		if herr == nil && host != nil {
+			inventoryTarget = host.Address
+		}
+	}
+	h.executeRunWithInventory(runID, form, inventoryTarget, variables)
+}
+
+// executeRunWithInventory loads the job runner server then delegates to executeRunWithServer.
+func (h *RunsHandler) executeRunWithInventory(runID string, form *models.Form, inventoryTarget string, variables map[string]interface{}) {
+	if form.ServerID == nil {
+		h.runs.Finish(runID, "failed", "form has no job runner configured")
+		return
+	}
+	server, err := h.servers.Get(*form.ServerID)
+	if err != nil || server == nil {
+		h.runs.Finish(runID, "failed", fmt.Sprintf("runner not found: %v", err))
+		return
+	}
+	h.executeRunWithServer(runID, form, server, inventoryTarget, variables)
 }
 
 // executeRunWithServer performs ansible execution for a specific server.
 // It dispatches to the K8s Job runner when the server has an ExecutionEnvironment
 // image configured, and falls back to the SSH runner otherwise.
-func (h *RunsHandler) executeRunWithServer(runID string, form *models.Form, server *models.Server, variables map[string]interface{}) {
+func (h *RunsHandler) executeRunWithServer(runID string, form *models.Form, server *models.Server, inventoryTarget string, variables map[string]interface{}) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	lr := &liveRun{cancelFn: cancel}
@@ -411,7 +437,7 @@ func (h *RunsHandler) executeRunWithServer(runID string, form *models.Form, serv
 			return
 		}
 		result = k8s.RunPlaybook(ctx, runID, server.ExecutionEnvironment, playbookContent,
-			variables, server.PreCommand, vaultPassword, vaultFileContent, outputCh)
+			inventoryTarget, variables, server.PreCommand, vaultPassword, vaultFileContent, outputCh)
 	} else {
 		// ── SSH runner ────────────────────────────────────────────────────────
 		sshClient, cerr := runner.Connect(server.Host, server.Port, server.Username, server.SSHPrivateKey)
@@ -432,7 +458,7 @@ func (h *RunsHandler) executeRunWithServer(runID string, form *models.Form, serv
 		}
 		defer sshClient.RunCommand(fmt.Sprintf("rm -f '%s'", remotePath))
 
-		result = sshClient.RunPlaybook(ctx, remotePath, variables, server.PreCommand, vaultPassword, vaultFileContent, outputCh)
+		result = sshClient.RunPlaybook(ctx, remotePath, variables, inventoryTarget, server.PreCommand, vaultPassword, vaultFileContent, outputCh)
 	}
 
 	close(outputCh)

@@ -79,6 +79,7 @@ export interface Form {
 	description: string;
 	playbook_id: string;
 	server_id?: string | null;
+	host_id?: string | null;
 	server_group_id?: string | null;
 	vault_id?: string | null;
 	is_quick_action: boolean;

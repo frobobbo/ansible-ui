@@ -82,6 +82,7 @@ type Form struct {
 	Description     string      `json:"description" db:"description"`
 	PlaybookID      string      `json:"playbook_id" db:"playbook_id"`
 	ServerID        *string     `json:"server_id" db:"server_id"`
+	HostID          *string     `json:"host_id" db:"host_id"`
 	ServerGroupID   *string     `json:"server_group_id" db:"server_group_id"`
 	VaultID         *string     `json:"vault_id" db:"vault_id"`
 	IsQuickAction   bool        `json:"is_quick_action" db:"is_quick_action"`

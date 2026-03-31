@@ -1,22 +1,23 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { forms as formsApi, servers as serversApi, playbooks as playbooksApi, vaults as vaultsApi, serverGroups as sgApi, ApiError } from '$lib/api';
-	import type { Server, ServerGroup, Playbook, Vault, FormField, FieldType } from '$lib/types';
+	import { forms as formsApi, servers as serversApi, playbooks as playbooksApi, vaults as vaultsApi, serverGroups as sgApi, hosts as hostsApi, ApiError } from '$lib/api';
+	import type { Server, ServerGroup, Playbook, Vault, FormField, FieldType, Host } from '$lib/types';
 
 	let serverList = $state<Server[]>([]);
 	let serverGroupList = $state<ServerGroup[]>([]);
 	let playbookList = $state<Playbook[]>([]);
 	let vaultList = $state<Vault[]>([]);
-	let targetMode = $state<'server' | 'group'>('server');
-	let formData = $state({ name: '', description: '', server_id: '', server_group_id: '', playbook_id: '', vault_id: '', is_quick_action: false, schedule_cron: '', schedule_enabled: false, notify_webhook: '', notify_email: '' });
+	let hostList = $state<Host[]>([]);
+	let targetMode = $state<'host' | 'group'>('host');
+	let formData = $state({ name: '', description: '', runner_id: '', host_id: '', server_group_id: '', playbook_id: '', vault_id: '', is_quick_action: false, schedule_cron: '', schedule_enabled: false, notify_webhook: '', notify_email: '' });
 	let fields = $state<Partial<FormField>[]>([]);
 	let stagedImage = $state<File | null>(null);
 	let saving = $state(false);
 	let error = $state('');
 
 	onMount(async () => {
-		[serverList, serverGroupList, playbookList, vaultList] = await Promise.all([serversApi.list(), sgApi.list(), playbooksApi.list(), vaultsApi.list()]);
+		[serverList, serverGroupList, playbookList, vaultList, hostList] = await Promise.all([serversApi.list(), sgApi.list(), playbooksApi.list(), vaultsApi.list(), hostsApi.list()]);
 	});
 
 	function addField() {
@@ -41,7 +42,8 @@
 		try {
 			const payload = {
 				...formData,
-				server_id: targetMode === 'server' ? formData.server_id : '',
+				server_id: formData.runner_id,
+				host_id: targetMode === 'host' ? formData.host_id : '',
 				server_group_id: targetMode === 'group' ? formData.server_group_id : '',
 				fields,
 			};
@@ -78,18 +80,26 @@
 				<input class="form-control" bind:value={formData.description} />
 			</div>
 			<div class="form-group">
+				<label>Job Runner</label>
+				<select class="form-control" bind:value={formData.runner_id} required>
+					<option value="">Select job runner...</option>
+					{#each serverList as sv}<option value={sv.id}>{sv.name}</option>{/each}
+				</select>
+				<small class="hint">The server or container that executes ansible-playbook.</small>
+			</div>
+			<div class="form-group">
 				<label>Target</label>
 				<div class="toggle-tabs">
-					<button type="button" class="tab-btn" class:active={targetMode === 'server'} onclick={() => targetMode = 'server'}>Host</button>
+					<button type="button" class="tab-btn" class:active={targetMode === 'host'} onclick={() => targetMode = 'host'}>Host</button>
 					<button type="button" class="tab-btn" class:active={targetMode === 'group'} onclick={() => targetMode = 'group'}>Host Group</button>
 				</div>
 			</div>
 			<div class="form-group">
-				{#if targetMode === 'server'}
+				{#if targetMode === 'host'}
 					<label>Host</label>
-					<select class="form-control" bind:value={formData.server_id} required>
+					<select class="form-control" bind:value={formData.host_id} required>
 						<option value="">Select host...</option>
-						{#each serverList as sv}<option value={sv.id}>{sv.name} ({sv.host})</option>{/each}
+						{#each hostList as h}<option value={h.id}>{h.name} ({h.address})</option>{/each}
 					</select>
 				{:else}
 					<label>Host Group</label>
@@ -97,7 +107,7 @@
 						<option value="">Select group...</option>
 						{#each serverGroupList as g}<option value={g.id}>{g.name}</option>{/each}
 					</select>
-					<small class="hint">Running this form will create one run per server in the group.</small>
+					<small class="hint">Running this form will create one run per host in the group.</small>
 				{/if}
 			</div>
 			<div class="form-group">
