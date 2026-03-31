@@ -24,6 +24,9 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		// Suppress HTTP/3 (QUIC) upgrades — QUIC requires UDP 443 which is
+		// typically blocked in Kubernetes clusters behind a TCP-only load balancer.
+		c.Header("Alt-Svc", "clear")
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)
 			return
