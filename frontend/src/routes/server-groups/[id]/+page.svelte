@@ -66,7 +66,7 @@
 </script>
 
 <div class="page-header">
-	<h1>Edit Server Group</h1>
+	<h1>Edit Host Group</h1>
 	<a href="/server-groups" class="btn btn-secondary">← Back</a>
 </div>
 

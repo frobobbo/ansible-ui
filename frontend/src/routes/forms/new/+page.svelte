@@ -81,7 +81,7 @@
 				<label>Target</label>
 				<div class="toggle-tabs">
 					<button type="button" class="tab-btn" class:active={targetMode === 'server'} onclick={() => targetMode = 'server'}>Single Server</button>
-					<button type="button" class="tab-btn" class:active={targetMode === 'group'} onclick={() => targetMode = 'group'}>Server Group</button>
+					<button type="button" class="tab-btn" class:active={targetMode === 'group'} onclick={() => targetMode = 'group'}>Host Group</button>
 				</div>
 			</div>
 			<div class="form-group">
@@ -92,7 +92,7 @@
 						{#each serverList as sv}<option value={sv.id}>{sv.name} ({sv.host})</option>{/each}
 					</select>
 				{:else}
-					<label>Server Group</label>
+					<label>Host Group</label>
 					<select class="form-control" bind:value={formData.server_group_id} required>
 						<option value="">Select group...</option>
 						{#each serverGroupList as g}<option value={g.id}>{g.name}</option>{/each}

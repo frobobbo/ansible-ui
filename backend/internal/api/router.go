@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUploadDir string, formImageDir string, jwtSecret string, runsH *RunsHandler, sched *scheduler.Scheduler, sshCertsH *SSHCertsHandler) *gin.Engine {
+func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUploadDir string, formImageDir string, jwtSecret string, runsH *RunsHandler, sched *scheduler.Scheduler, sshCertsH *SSHCertsHandler, hostsH *HostsHandler) *gin.Engine {
 	r := gin.Default()
 	// Disable automatic redirects that generate http:// Location headers when
 	// the app runs behind an SSL-terminating reverse proxy (e.g. Nginx Proxy Manager).
@@ -69,7 +69,14 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 			protected.PUT("/users/:id", auth.RequireAdmin, usersH.Update)
 			protected.DELETE("/users/:id", auth.RequireAdmin, usersH.Delete)
 
-			// Servers
+			// Hosts (Ansible inventory targets)
+			protected.GET("/hosts", hostsH.List)
+			protected.GET("/hosts/:id", hostsH.Get)
+			protected.POST("/hosts", auth.RequireAdmin, hostsH.Create)
+			protected.PUT("/hosts/:id", auth.RequireAdmin, hostsH.Update)
+			protected.DELETE("/hosts/:id", auth.RequireAdmin, hostsH.Delete)
+
+			// Servers (Job Runners)
 			protected.GET("/servers", serversH.List)
 			protected.GET("/servers/:id", serversH.Get)
 			protected.POST("/servers", auth.RequireAdmin, serversH.Create)

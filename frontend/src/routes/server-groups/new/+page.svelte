@@ -21,7 +21,7 @@
 </script>
 
 <div class="page-header">
-	<h1>New Server Group</h1>
+	<h1>New Host Group</h1>
 	<a href="/server-groups" class="btn btn-secondary">← Back</a>
 </div>
 

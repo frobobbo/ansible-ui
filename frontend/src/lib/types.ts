@@ -49,6 +49,15 @@ export interface Vault {
 	created_at: string;
 }
 
+export interface Host {
+	id: string;
+	name: string;
+	address: string;
+	description: string;
+	vars: Record<string, string>;
+	created_at: string;
+}
+
 export interface SSHCert {
 	id: string;
 	name: string;

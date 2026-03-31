@@ -50,6 +50,17 @@ type Vault struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
+// Host represents an Ansible inventory host — the machine a playbook targets.
+// Vars are stored as a key-value map and written to the inventory at run time.
+type Host struct {
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	Address     string            `json:"address"` // IP or FQDN used in the inventory
+	Description string            `json:"description"`
+	Vars        map[string]string `json:"vars"` // ansible host_vars
+	CreatedAt   time.Time         `json:"created_at"`
+}
+
 type SSHCert struct {
 	ID          string    `json:"id"`
 	Name        string    `json:"name"`

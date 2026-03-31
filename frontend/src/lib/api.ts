@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import { authStore } from './stores';
-import type { AuditLog, AuthResponse, Form, FormField, Playbook, Run, Server, ServerGroup, SSHCert, User, Vault } from './types';
+import type { AuditLog, AuthResponse, Form, FormField, Host, Playbook, Run, Server, ServerGroup, SSHCert, User, Vault } from './types';
 
 export class ApiError extends Error {
 	constructor(public status: number, message: string) {
@@ -154,6 +154,16 @@ export const vaults = {
 		return request<Vault>(`/vaults/${id}/upload`, { method: 'POST', body: fd });
 	},
 	deleteFile: (id: string) => request<Vault>(`/vaults/${id}/file`, { method: 'DELETE' }),
+};
+
+export const hosts = {
+	list: () => request<Host[]>('/hosts'),
+	get: (id: string) => request<Host>(`/hosts/${id}`),
+	create: (data: { name: string; address: string; description: string; vars: Record<string, string> }) =>
+		request<Host>('/hosts', { method: 'POST', body: JSON.stringify(data) }),
+	update: (id: string, data: { name: string; address: string; description: string; vars: Record<string, string> }) =>
+		request<Host>(`/hosts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+	delete: (id: string) => request<void>(`/hosts/${id}`, { method: 'DELETE' }),
 };
 
 export const sshCerts = {

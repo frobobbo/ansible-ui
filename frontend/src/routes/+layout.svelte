@@ -98,7 +98,15 @@
 								<circle cx="6" cy="6.5" r="1" fill="currentColor" stroke="none"/>
 								<circle cx="6" cy="13.5" r="1" fill="currentColor" stroke="none"/>
 							</svg>
-							Servers
+							Job Runners
+						</a>
+						<a href="/hosts" class="nav-link" class:active={$page.url.pathname.startsWith('/hosts')}>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<rect x="2" y="3" width="20" height="14" rx="2"/>
+								<line x1="8" y1="21" x2="16" y2="21"/>
+								<line x1="12" y1="17" x2="12" y2="21"/>
+							</svg>
+							Hosts
 						</a>
 						<a href="/playbooks" class="nav-link" class:active={$page.url.pathname.startsWith('/playbooks')}>
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -118,7 +126,7 @@
 								<circle cx="6" cy="5.5" r="1" fill="currentColor" stroke="none"/>
 								<circle cx="6" cy="12.5" r="1" fill="currentColor" stroke="none"/>
 							</svg>
-							Server Groups
+							Host Groups
 						</a>
 					</div>
 

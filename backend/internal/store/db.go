@@ -94,6 +94,14 @@ func New(dsn string) (*DB, error) {
 	}
 	db.Exec("ALTER TABLE runs ADD COLUMN batch_id TEXT")
 	db.Exec("ALTER TABLE servers ADD COLUMN execution_environment TEXT NOT NULL DEFAULT ''")
+	db.Exec(`CREATE TABLE IF NOT EXISTS hosts (
+		id          TEXT PRIMARY KEY,
+		name        TEXT NOT NULL,
+		address     TEXT NOT NULL,
+		description TEXT NOT NULL DEFAULT '',
+		vars        TEXT NOT NULL DEFAULT '{}',
+		created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	)`)
 	db.Exec(`CREATE TABLE IF NOT EXISTS ssh_certs (
 		id          TEXT PRIMARY KEY,
 		name        TEXT NOT NULL,
@@ -160,6 +168,7 @@ func (db *DB) ServerGroups() *ServerGroupStore { return &ServerGroupStore{db: db
 func (db *DB) Vaults(secret string) *VaultStore {
 	return newVaultStore(db.conn, secret)
 }
+func (db *DB) Hosts() *HostStore                  { return &HostStore{db: db.conn} }
 func (db *DB) SSHCerts(secret string) *SSHCertStore {
 	return newSSHCertStore(db.conn, secret)
 }
