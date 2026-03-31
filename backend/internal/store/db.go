@@ -93,6 +93,7 @@ func New(dsn string) (*DB, error) {
 		db.Exec("PRAGMA legacy_alter_table = OFF")
 	}
 	db.Exec("ALTER TABLE runs ADD COLUMN batch_id TEXT")
+	db.Exec("ALTER TABLE servers ADD COLUMN execution_environment TEXT NOT NULL DEFAULT ''")
 
 	// Migrate users table to add 'editor' role — SQLite CHECK constraints require
 	// a full table rebuild; check sqlite_master to avoid re-running on every start.

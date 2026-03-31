@@ -17,6 +17,7 @@ export interface Server {
 	username: string;
 	ssh_private_key?: string;
 	pre_command: string;
+	execution_environment: string;
 	created_at: string;
 }
 

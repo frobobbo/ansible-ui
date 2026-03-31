@@ -11,14 +11,15 @@ type User struct {
 }
 
 type Server struct {
-	ID            string    `json:"id" db:"id"`
-	Name          string    `json:"name" db:"name"`
-	Host          string    `json:"host" db:"host"`
-	Port          int       `json:"port" db:"port"`
-	Username      string    `json:"username" db:"username"`
-	SSHPrivateKey string    `json:"ssh_private_key,omitempty" db:"ssh_private_key"`
-	PreCommand    string    `json:"pre_command" db:"pre_command"`
-	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	ID                   string    `json:"id" db:"id"`
+	Name                 string    `json:"name" db:"name"`
+	Host                 string    `json:"host" db:"host"`
+	Port                 int       `json:"port" db:"port"`
+	Username             string    `json:"username" db:"username"`
+	SSHPrivateKey        string    `json:"ssh_private_key,omitempty" db:"ssh_private_key"`
+	PreCommand           string    `json:"pre_command" db:"pre_command"`
+	ExecutionEnvironment string    `json:"execution_environment" db:"execution_environment"`
+	CreatedAt            time.Time `json:"created_at" db:"created_at"`
 }
 
 type Playbook struct {

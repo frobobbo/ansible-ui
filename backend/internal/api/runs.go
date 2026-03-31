@@ -338,7 +338,9 @@ func (h *RunsHandler) executeRun(runID string, form *models.Form, variables map[
 	h.executeRunWithServer(runID, form, server, variables)
 }
 
-// executeRunWithServer performs the full SSH + ansible execution for a specific server.
+// executeRunWithServer performs ansible execution for a specific server.
+// It dispatches to the K8s Job runner when the server has an ExecutionEnvironment
+// image configured, and falls back to the SSH runner otherwise.
 func (h *RunsHandler) executeRunWithServer(runID string, form *models.Form, server *models.Server, variables map[string]interface{}) {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -363,20 +365,6 @@ func (h *RunsHandler) executeRunWithServer(runID string, form *models.Form, serv
 		fail(fmt.Sprintf("read playbook: %v", err))
 		return
 	}
-
-	client, err := runner.Connect(server.Host, server.Port, server.Username, server.SSHPrivateKey)
-	if err != nil {
-		fail(fmt.Sprintf("SSH connect failed: %v", err))
-		return
-	}
-	defer client.Close()
-
-	remotePath := fmt.Sprintf("/tmp/ansible-run-%s.yml", runID)
-	if err := client.UploadFile(playbookContent, remotePath); err != nil {
-		fail(fmt.Sprintf("upload playbook: %v", err))
-		return
-	}
-	defer client.RunCommand(fmt.Sprintf("rm -f '%s'", remotePath))
 
 	var vaultPassword string
 	var vaultFileContent []byte
@@ -411,7 +399,42 @@ func (h *RunsHandler) executeRunWithServer(runID string, form *models.Form, serv
 		}
 	}()
 
-	result := client.RunPlaybook(ctx, remotePath, variables, server.PreCommand, vaultPassword, vaultFileContent, outputCh)
+	var result runner.RunResult
+
+	if server.ExecutionEnvironment != "" {
+		// ── Kubernetes Execution Environment ─────────────────────────────────
+		k8s, kerr := runner.GetK8sRunner()
+		if kerr != nil {
+			fail(fmt.Sprintf("k8s runner unavailable: %v", kerr))
+			close(outputCh)
+			<-doneCh
+			return
+		}
+		result = k8s.RunPlaybook(ctx, runID, server.ExecutionEnvironment, playbookContent,
+			variables, server.PreCommand, vaultPassword, vaultFileContent, outputCh)
+	} else {
+		// ── SSH runner ────────────────────────────────────────────────────────
+		sshClient, cerr := runner.Connect(server.Host, server.Port, server.Username, server.SSHPrivateKey)
+		if cerr != nil {
+			fail(fmt.Sprintf("SSH connect failed: %v", cerr))
+			close(outputCh)
+			<-doneCh
+			return
+		}
+		defer sshClient.Close()
+
+		remotePath := fmt.Sprintf("/tmp/ansible-run-%s.yml", runID)
+		if uerr := sshClient.UploadFile(playbookContent, remotePath); uerr != nil {
+			fail(fmt.Sprintf("upload playbook: %v", uerr))
+			close(outputCh)
+			<-doneCh
+			return
+		}
+		defer sshClient.RunCommand(fmt.Sprintf("rm -f '%s'", remotePath))
+
+		result = sshClient.RunPlaybook(ctx, remotePath, variables, server.PreCommand, vaultPassword, vaultFileContent, outputCh)
+	}
+
 	close(outputCh)
 	<-doneCh
 

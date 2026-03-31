@@ -18,7 +18,8 @@
 					(s) =>
 						s.name.toLowerCase().includes(filter.toLowerCase()) ||
 						s.host.toLowerCase().includes(filter.toLowerCase()) ||
-						s.username.toLowerCase().includes(filter.toLowerCase())
+						s.username.toLowerCase().includes(filter.toLowerCase()) ||
+						s.execution_environment.toLowerCase().includes(filter.toLowerCase())
 				)
 			: list
 	);
@@ -26,9 +27,11 @@
 	// Modal state
 	let showModal = $state(false);
 	let editingId = $state<string | null>(null);
-	let form = $state({ name: '', host: '', port: 22, username: '', ssh_private_key: '', pre_command: '' });
+	let form = $state({ name: '', host: '', port: 22, username: '', ssh_private_key: '', pre_command: '', execution_environment: '' });
 	let saving = $state(false);
 	let formError = $state('');
+
+	let isEE = $derived(form.execution_environment.trim() !== '');
 
 	onMount(async () => { await load(); });
 
@@ -41,14 +44,22 @@
 
 	function openCreate() {
 		editingId = null;
-		form = { name: '', host: '', port: 22, username: '', ssh_private_key: '', pre_command: '' };
+		form = { name: '', host: '', port: 22, username: '', ssh_private_key: '', pre_command: '', execution_environment: '' };
 		formError = '';
 		showModal = true;
 	}
 
 	function openEdit(sv: Server) {
 		editingId = sv.id;
-		form = { name: sv.name, host: sv.host, port: sv.port, username: sv.username, ssh_private_key: '', pre_command: sv.pre_command };
+		form = {
+			name: sv.name,
+			host: sv.host,
+			port: sv.port,
+			username: sv.username,
+			ssh_private_key: '',
+			pre_command: sv.pre_command,
+			execution_environment: sv.execution_environment ?? ''
+		};
 		formError = '';
 		showModal = true;
 	}
@@ -117,14 +128,25 @@
 {:else}
 	<div class="card" style="padding:0">
 		<table class="table">
-			<thead><tr><th>Name</th><th>Host</th><th>Port</th><th>Username</th><th>Actions</th></tr></thead>
+			<thead><tr><th>Name</th><th>Type</th><th>Target</th><th>Actions</th></tr></thead>
 			<tbody>
 				{#each filtered as sv}
 					<tr>
 						<td><strong>{sv.name}</strong></td>
-						<td>{sv.host}</td>
-						<td>{sv.port}</td>
-						<td>{sv.username}</td>
+						<td>
+							{#if sv.execution_environment}
+								<span class="badge badge-ee">EE</span>
+							{:else}
+								<span class="badge badge-ssh">SSH</span>
+							{/if}
+						</td>
+						<td class="target-cell">
+							{#if sv.execution_environment}
+								<span class="ee-image" title={sv.execution_environment}>{sv.execution_environment}</span>
+							{:else}
+								{sv.username}@{sv.host}:{sv.port}
+							{/if}
+						</td>
 						<td>
 							<div class="actions">
 								<button class="btn btn-sm btn-secondary" onclick={() => testConnection(sv.id)} disabled={testing[sv.id]}>
@@ -154,36 +176,56 @@
 			<h2>{editingId ? 'Edit Server' : 'Add Server'}</h2>
 			{#if formError}<div class="alert alert-error">{formError}</div>{/if}
 			<form onsubmit={(e) => { e.preventDefault(); save(); }}>
-				<div class="grid-2">
-					<div class="form-group">
-						<label>Name</label>
-						<input class="form-control" bind:value={form.name} required />
-					</div>
-					<div class="form-group">
-						<label>Host / IP</label>
-						<input class="form-control" bind:value={form.host} required />
-					</div>
-					<div class="form-group">
-						<label>Port</label>
-						<input class="form-control" type="number" bind:value={form.port} min="1" max="65535" required />
-					</div>
-					<div class="form-group">
-						<label>SSH Username</label>
-						<input class="form-control" bind:value={form.username} required />
-					</div>
-				</div>
 				<div class="form-group">
-					<label>SSH Private Key (PEM){editingId ? ' — leave blank to keep existing' : ''}</label>
-					<textarea class="form-control" bind:value={form.ssh_private_key} rows="8"
-						placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"
-						required={!editingId}></textarea>
+					<label>Name</label>
+					<input class="form-control" bind:value={form.name} required />
 				</div>
+
 				<div class="form-group">
-					<label>Pre-run Command (optional)</label>
+					<label>Execution Environment Image <span class="hint-inline">(optional — leave blank to use SSH)</span></label>
+					<input class="form-control" bind:value={form.execution_environment}
+						placeholder="ghcr.io/ansible/community-general-ee:latest" />
+					<small class="hint">A container image (GitHub Container Registry, Docker Hub, etc.) with ansible-playbook installed. When set, the playbook runs inside a Kubernetes Job using this image instead of connecting via SSH.</small>
+				</div>
+
+				{#if !isEE}
+					<div class="ssh-section">
+						<div class="grid-2">
+							<div class="form-group">
+								<label>Host / IP</label>
+								<input class="form-control" bind:value={form.host} required={!isEE} />
+							</div>
+							<div class="form-group">
+								<label>Port</label>
+								<input class="form-control" type="number" bind:value={form.port} min="1" max="65535" />
+							</div>
+							<div class="form-group">
+								<label>SSH Username</label>
+								<input class="form-control" bind:value={form.username} required={!isEE} />
+							</div>
+						</div>
+						<div class="form-group">
+							<label>SSH Private Key (PEM){editingId ? ' — leave blank to keep existing' : ''}</label>
+							<textarea class="form-control" bind:value={form.ssh_private_key} rows="8"
+								placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"
+								required={!editingId && !isEE}></textarea>
+						</div>
+					</div>
+				{/if}
+
+				<div class="form-group">
+					<label>Pre-run Command <span class="hint-inline">(optional)</span></label>
 					<input class="form-control" bind:value={form.pre_command}
-						placeholder="e.g. . /home/brett/ansible/bin/activate" />
-					<small class="hint">Run before ansible-playbook to activate a virtualenv or set PATH.</small>
+						placeholder={isEE ? 'e.g. pip install -r requirements.txt' : 'e.g. . /home/user/ansible/bin/activate'} />
+					<small class="hint">
+						{#if isEE}
+							Runs inside the container before ansible-playbook (e.g. install extra collections).
+						{:else}
+							Runs on the remote host before ansible-playbook (e.g. activate a virtualenv).
+						{/if}
+					</small>
 				</div>
+
 				<div class="actions" style="justify-content:flex-end">
 					<button type="button" class="btn btn-secondary" onclick={() => showModal = false}>Cancel</button>
 					<button type="submit" class="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
@@ -199,6 +241,12 @@
 	.test-result { font-size: 0.75rem; margin-top: 0.25rem; }
 	.test-result.ok { color: var(--success); }
 	.test-result:not(.ok) { color: var(--danger); }
+	.target-cell { font-size: 0.85rem; max-width: 280px; }
+	.ee-image { font-family: monospace; font-size: 0.8rem; word-break: break-all; }
+	.badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; }
+	.badge-ssh { background: var(--border); color: var(--text-muted); }
+	.badge-ee  { background: #dbeafe; color: #1d4ed8; }
+	.hint-inline { font-weight: normal; font-size: 0.8rem; color: var(--text-muted); }
 	.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
 	.modal { background: white; border-radius: var(--radius); padding: 2rem; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
 </style>
