@@ -75,7 +75,7 @@
 {:else}
 	{#if error}<div class="alert alert-error">{error}</div>{/if}
 
-	<form onsubmit={(e) => { e.preventDefault(); save(); }}>
+	<form onsubmit={(e) => { e.preventDefault(); save(); }} autocomplete="off">
 		<div class="card">
 			<h2>Group Details</h2>
 			<div class="grid-2">

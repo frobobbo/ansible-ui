@@ -107,7 +107,7 @@
 {:else if form}
 	{#if error}<div class="alert alert-error">{error}</div>{/if}
 
-	<form onsubmit={(e) => { e.preventDefault(); executeRun(); }}>
+	<form onsubmit={(e) => { e.preventDefault(); executeRun(); }} autocomplete="off">
 		<div class="card">
 			<h2>Variables</h2>
 			{#if !form.fields || form.fields.length === 0}

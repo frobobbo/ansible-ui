@@ -37,7 +37,7 @@
 			{#if error}
 				<div class="alert alert-error">{error}</div>
 			{/if}
-			<form onsubmit={handleLogin}>
+			<form onsubmit={handleLogin} autocomplete="off">
 				<div class="form-group">
 					<label for="username">Username</label>
 					<input id="username" class="form-control" type="text" bind:value={username} required autocomplete="username" />

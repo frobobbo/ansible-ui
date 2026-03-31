@@ -163,7 +163,7 @@
 		<div class="modal" onclick={(e) => e.stopPropagation()} role="dialog">
 			<h2>{editingId ? 'Edit Vault' : 'Add Vault'}</h2>
 			{#if formError}<div class="alert alert-error">{formError}</div>{/if}
-			<form onsubmit={(e) => { e.preventDefault(); save(); }}>
+			<form onsubmit={(e) => { e.preventDefault(); save(); }} autocomplete="off">
 				<div class="form-group">
 					<label>Name</label>
 					<input class="form-control" bind:value={form.name} required />

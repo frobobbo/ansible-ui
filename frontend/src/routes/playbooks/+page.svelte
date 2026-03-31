@@ -114,7 +114,7 @@
 		<div class="modal" onclick={(e) => e.stopPropagation()} role="dialog">
 			<h2>Upload Playbook</h2>
 			{#if uploadError}<div class="alert alert-error">{uploadError}</div>{/if}
-			<form onsubmit={(e) => { e.preventDefault(); upload(); }}>
+			<form onsubmit={(e) => { e.preventDefault(); upload(); }} autocomplete="off">
 				<div class="form-group">
 					<label>YAML File</label>
 					<input class="form-control" type="file" accept=".yml,.yaml" onchange={onFileChange} required />

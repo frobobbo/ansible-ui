@@ -106,7 +106,7 @@
 		<div class="modal" onclick={(e) => e.stopPropagation()} role="dialog">
 			<h2>{editingId ? 'Edit User' : 'Create User'}</h2>
 			{#if formError}<div class="alert alert-error">{formError}</div>{/if}
-			<form onsubmit={(e) => { e.preventDefault(); save(); }}>
+			<form onsubmit={(e) => { e.preventDefault(); save(); }} autocomplete="off">
 				<div class="form-group">
 					<label>Username</label>
 					<input class="form-control" bind:value={form.username} required />
