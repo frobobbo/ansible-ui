@@ -71,7 +71,9 @@
 		<nav class="sidebar" class:open={sidebarOpen} aria-label="Main navigation">
 			<div class="logo">
 				<svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-					<polygon points="5,3 19,12 5,21"/>
+					<circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/>
+					<line x1="12" y1="6" x2="12" y2="18" stroke-width="2.5" stroke-linecap="round"/>
+					<line x1="6" y1="12" x2="18" y2="12" stroke-width="2.5" stroke-linecap="round"/>
 				</svg>
 				Ansible UI
 			</div>
@@ -108,15 +110,6 @@
 							</svg>
 							Hosts
 						</a>
-						<a href="/playbooks" class="nav-link" class:active={$page.url.pathname.startsWith('/playbooks')}>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-								<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-								<polyline points="14,2 14,8 20,8"/>
-								<line x1="16" y1="13" x2="8" y2="13"/>
-								<line x1="16" y1="17" x2="8" y2="17"/>
-							</svg>
-							Playbooks
-						</a>
 						<a href="/server-groups" class="nav-link" class:active={$page.url.pathname.startsWith('/server-groups')}>
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 								<rect x="2" y="3" width="20" height="5" rx="1"/>
@@ -128,13 +121,14 @@
 							</svg>
 							Host Groups
 						</a>
-						<a href="/ee" class="nav-link" class:active={$page.url.pathname.startsWith('/ee')}>
+						<a href="/playbooks" class="nav-link" class:active={$page.url.pathname.startsWith('/playbooks')}>
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-								<rect x="3" y="3" width="18" height="18" rx="2"/>
-								<path d="M9 9l3 3-3 3"/>
-								<line x1="13" y1="15" x2="16" y2="15"/>
+								<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+								<polyline points="14,2 14,8 20,8"/>
+								<line x1="16" y1="13" x2="8" y2="13"/>
+								<line x1="16" y1="17" x2="8" y2="17"/>
 							</svg>
-							EE Editor
+							Playbooks
 						</a>
 					</div>
 
@@ -202,6 +196,14 @@
 								<line x1="10" y1="9" x2="8" y2="9"/>
 							</svg>
 							Audit Log
+						</a>
+						<a href="/ee" class="nav-link" class:active={$page.url.pathname.startsWith('/ee')}>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<rect x="3" y="3" width="18" height="18" rx="2"/>
+								<path d="M9 9l3 3-3 3"/>
+								<line x1="13" y1="15" x2="16" y2="15"/>
+							</svg>
+							EE Editor
 						</a>
 					</div>
 				{/if}
@@ -330,9 +332,9 @@
 	:global(.nav-link.active) {
 		color: white;
 		border-left-color: var(--primary);
-		background: rgba(86,54,209,0.15);
+		background: rgba(20,184,212,0.12);
 	}
-	:global(.nav-link.active) svg { opacity: 1; color: #a78bfa; }
+	:global(.nav-link.active) svg { opacity: 1; color: #67d9ec; }
 
 	/* ── Sidebar footer ────────────────────────────────────────── */
 	.sidebar-footer {
@@ -347,8 +349,8 @@
 	.user-chip svg { flex-shrink: 0; color: #6b7280; }
 	.user-name { font-weight: 500; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.user-role {
-		font-size: 0.65rem; background: rgba(86,54,209,0.25);
-		color: #a78bfa; padding: 0.1rem 0.4rem; border-radius: 999px; white-space: nowrap;
+		font-size: 0.65rem; background: rgba(20,184,212,0.2);
+		color: #67d9ec; padding: 0.1rem 0.4rem; border-radius: 999px; white-space: nowrap;
 	}
 	.btn-theme {
 		display: flex; align-items: center; gap: 0.4rem;
@@ -357,7 +359,7 @@
 		border-radius: var(--radius); cursor: pointer; font-size: 0.8rem;
 		transition: background 0.15s, border-color 0.15s, color 0.15s; width: 100%;
 	}
-	.btn-theme:hover { background: rgba(86,54,209,0.15); border-color: var(--primary); color: #a78bfa; }
+	.btn-theme:hover { background: rgba(20,184,212,0.12); border-color: var(--primary); color: #67d9ec; }
 	.btn-logout {
 		background: none; border: 1px solid rgba(255,255,255,0.1);
 		color: var(--sidebar-text); padding: 0.375rem 0.75rem;
