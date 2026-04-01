@@ -1,0 +1,4 @@
+# Add Python packages required by your playbooks here.
+# Example:
+# boto3
+# psycopg2-binary
