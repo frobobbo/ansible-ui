@@ -159,9 +159,9 @@ export const vaults = {
 export const hosts = {
 	list: () => request<Host[]>('/hosts'),
 	get: (id: string) => request<Host>(`/hosts/${id}`),
-	create: (data: { name: string; address: string; description: string; vars: Record<string, string> }) =>
+	create: (data: { name: string; address: string; description: string; ssh_cert_id?: string | null; vars: Record<string, string> }) =>
 		request<Host>('/hosts', { method: 'POST', body: JSON.stringify(data) }),
-	update: (id: string, data: { name: string; address: string; description: string; vars: Record<string, string> }) =>
+	update: (id: string, data: { name: string; address: string; description: string; ssh_cert_id?: string | null; vars: Record<string, string> }) =>
 		request<Host>(`/hosts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 	delete: (id: string) => request<void>(`/hosts/${id}`, { method: 'DELETE' }),
 };

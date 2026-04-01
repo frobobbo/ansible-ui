@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { hosts as hostsApi, ApiError } from '$lib/api';
+	import { hosts as hostsApi, sshCerts as sshCertsApi, ApiError } from '$lib/api';
 	import { isAdmin } from '$lib/stores';
 	import { toast, confirmDialog } from '$lib/toast';
-	import type { Host } from '$lib/types';
+	import type { Host, SSHCert } from '$lib/types';
 
 	let list = $state<Host[]>([]);
+	let certList = $state<SSHCert[]>([]);
 	let loading = $state(true);
 	let error = $state('');
 	let filter = $state('');
@@ -24,13 +25,16 @@
 	// Modal state
 	let showModal = $state(false);
 	let editingId = $state<string | null>(null);
-	let form = $state({ name: '', address: '', description: '' });
+	let form = $state({ name: '', address: '', description: '', ssh_cert_id: '' });
 	// Host vars edited as an array of {key, value} pairs for easy UI binding
 	let varPairs = $state<{ key: string; value: string }[]>([]);
 	let saving = $state(false);
 	let formError = $state('');
 
 	onMount(async () => { await load(); });
+	onMount(async () => {
+		try { certList = await sshCertsApi.list(); } catch { /* non-fatal */ }
+	});
 
 	async function load() {
 		loading = true;
@@ -53,7 +57,7 @@
 
 	function openCreate() {
 		editingId = null;
-		form = { name: '', address: '', description: '' };
+		form = { name: '', address: '', description: '', ssh_cert_id: '' };
 		varPairs = [];
 		formError = '';
 		showModal = true;
@@ -61,7 +65,7 @@
 
 	function openEdit(host: Host) {
 		editingId = host.id;
-		form = { name: host.name, address: host.address, description: host.description };
+		form = { name: host.name, address: host.address, description: host.description, ssh_cert_id: host.ssh_cert_id ?? '' };
 		varPairs = pairsFromVars(host.vars ?? {});
 		formError = '';
 		showModal = true;
@@ -78,7 +82,7 @@
 	async function save() {
 		saving = true;
 		formError = '';
-		const payload = { ...form, vars: pairsToVars(varPairs) };
+		const payload = { ...form, ssh_cert_id: form.ssh_cert_id || null, vars: pairsToVars(varPairs) };
 		try {
 			if (editingId) {
 				await hostsApi.update(editingId, payload);
@@ -132,6 +136,7 @@
 				<tr>
 					<th>Name</th>
 					<th>Address</th>
+					<th>SSH Cert</th>
 					<th>Host Vars</th>
 					<th>Actions</th>
 				</tr>
@@ -146,6 +151,13 @@
 							{/if}
 						</td>
 						<td class="mono">{host.address}</td>
+						<td>
+							{#if host.ssh_cert_id}
+								{certList.find(c => c.id === host.ssh_cert_id)?.name ?? '—'}
+							{:else}
+								<span class="none">—</span>
+							{/if}
+						</td>
 						<td>
 							{#if host.vars && Object.keys(host.vars).length > 0}
 								<div class="var-chips">
@@ -194,6 +206,17 @@
 				<div class="form-group">
 					<label>Description <span class="hint-inline">(optional)</span></label>
 					<input class="form-control" bind:value={form.description} placeholder="e.g. Primary web server" />
+				</div>
+
+				<div class="form-group">
+					<label>SSH Cert <span class="hint-inline">(optional)</span></label>
+					<select class="form-control" bind:value={form.ssh_cert_id}>
+						<option value="">— None —</option>
+						{#each certList as cert}
+							<option value={cert.id}>{cert.name}{cert.file_name ? '' : ' (no key uploaded)'}</option>
+						{/each}
+					</select>
+					<small class="hint">The SSH private key Ansible uses to connect to this host (<code>ansible_ssh_private_key_file</code>).</small>
 				</div>
 
 				<div class="form-group">

@@ -28,7 +28,7 @@ type RunResult struct {
 // and passed via --extra-vars "@path" so ansible decrypts it automatically.
 // Lines of output are sent to outputCh as they arrive.
 // The caller must close outputCh after this returns.
-func (c *SSHClient) RunPlaybook(ctx context.Context, playbookPath string, variables map[string]interface{}, inventoryTarget string, preCommand string, vaultPassword string, vaultFileContent []byte, outputCh chan<- string) RunResult {
+func (c *SSHClient) RunPlaybook(ctx context.Context, playbookPath string, variables map[string]interface{}, inventoryTarget string, preCommand string, vaultPassword string, vaultFileContent []byte, sshCertContent []byte, outputCh chan<- string) RunResult {
 	varJSON, err := json.Marshal(variables)
 	if err != nil {
 		return RunResult{Err: fmt.Errorf("marshal vars: %w", err)}
@@ -38,6 +38,16 @@ func (c *SSHClient) RunPlaybook(ctx context.Context, playbookPath string, variab
 	varStr := strings.ReplaceAll(string(varJSON), "'", `'"'"'`)
 	ansibleCmd := fmt.Sprintf("ansible-playbook '%s' --extra-vars '%s'", playbookPath, varStr)
 	if inventoryTarget != "" {
+		// If an SSH cert is provided, upload it and inject the key path into the inventory.
+		if len(sshCertContent) > 0 {
+			certPath := strings.TrimSuffix(playbookPath, ".yml") + "-cert"
+			if err := c.UploadFile(sshCertContent, certPath); err != nil {
+				return RunResult{Err: fmt.Errorf("upload ssh cert: %w", err)}
+			}
+			c.RunCommand(fmt.Sprintf("chmod 600 '%s'", certPath))
+			defer c.RunCommand(fmt.Sprintf("rm -f '%s'", certPath))
+			inventoryTarget = strings.TrimSuffix(inventoryTarget, "\n") + " ansible_ssh_private_key_file=" + certPath + "\n"
+		}
 		inventoryPath := strings.TrimSuffix(playbookPath, ".yml") + "-inventory"
 		if err := c.UploadFile([]byte(inventoryTarget), inventoryPath); err != nil {
 			return RunResult{Err: fmt.Errorf("upload inventory: %w", err)}

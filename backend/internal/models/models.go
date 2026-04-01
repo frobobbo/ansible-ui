@@ -57,7 +57,8 @@ type Host struct {
 	Name        string            `json:"name"`
 	Address     string            `json:"address"` // IP or FQDN used in the inventory
 	Description string            `json:"description"`
-	Vars        map[string]string `json:"vars"` // ansible host_vars
+	SSHCertID   *string           `json:"ssh_cert_id,omitempty"` // optional SSH cert for ansible_ssh_private_key_file
+	Vars        map[string]string `json:"vars"`                  // ansible host_vars
 	CreatedAt   time.Time         `json:"created_at"`
 }
 

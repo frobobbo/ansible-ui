@@ -54,6 +54,7 @@ export interface Host {
 	name: string;
 	address: string;
 	description: string;
+	ssh_cert_id?: string | null;
 	vars: Record<string, string>;
 	created_at: string;
 }

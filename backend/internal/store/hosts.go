@@ -16,7 +16,7 @@ type HostStore struct {
 
 func (s *HostStore) List() ([]*models.Host, error) {
 	rows, err := s.db.Query(
-		"SELECT id, name, address, description, vars, created_at FROM hosts ORDER BY name",
+		"SELECT id, name, address, description, ssh_cert_id, vars, created_at FROM hosts ORDER BY name",
 	)
 	if err != nil {
 		return nil, err
@@ -36,7 +36,7 @@ func (s *HostStore) List() ([]*models.Host, error) {
 
 func (s *HostStore) Get(id string) (*models.Host, error) {
 	row := s.db.QueryRow(
-		"SELECT id, name, address, description, vars, created_at FROM hosts WHERE id = ?", id,
+		"SELECT id, name, address, description, ssh_cert_id, vars, created_at FROM hosts WHERE id = ?", id,
 	)
 	h, err := scanHost(row.Scan)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -45,7 +45,7 @@ func (s *HostStore) Get(id string) (*models.Host, error) {
 	return h, err
 }
 
-func (s *HostStore) Create(name, address, description string, vars map[string]string) (*models.Host, error) {
+func (s *HostStore) Create(name, address, description string, sshCertID *string, vars map[string]string) (*models.Host, error) {
 	if vars == nil {
 		vars = map[string]string{}
 	}
@@ -58,17 +58,18 @@ func (s *HostStore) Create(name, address, description string, vars map[string]st
 		Name:        name,
 		Address:     address,
 		Description: description,
+		SSHCertID:   sshCertID,
 		Vars:        vars,
 		CreatedAt:   time.Now(),
 	}
 	_, err = s.db.Exec(
-		"INSERT INTO hosts (id, name, address, description, vars, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-		h.ID, h.Name, h.Address, h.Description, string(varsJSON), h.CreatedAt,
+		"INSERT INTO hosts (id, name, address, description, ssh_cert_id, vars, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		h.ID, h.Name, h.Address, h.Description, h.SSHCertID, string(varsJSON), h.CreatedAt,
 	)
 	return h, err
 }
 
-func (s *HostStore) Update(id, name, address, description string, vars map[string]string) (*models.Host, error) {
+func (s *HostStore) Update(id, name, address, description string, sshCertID *string, vars map[string]string) (*models.Host, error) {
 	if vars == nil {
 		vars = map[string]string{}
 	}
@@ -77,8 +78,8 @@ func (s *HostStore) Update(id, name, address, description string, vars map[strin
 		return nil, err
 	}
 	_, err = s.db.Exec(
-		"UPDATE hosts SET name=?, address=?, description=?, vars=? WHERE id=?",
-		name, address, description, string(varsJSON), id,
+		"UPDATE hosts SET name=?, address=?, description=?, ssh_cert_id=?, vars=? WHERE id=?",
+		name, address, description, sshCertID, string(varsJSON), id,
 	)
 	if err != nil {
 		return nil, err
@@ -95,7 +96,7 @@ func (s *HostStore) Delete(id string) error {
 func scanHost(scan func(...any) error) (*models.Host, error) {
 	h := &models.Host{}
 	var varsJSON string
-	if err := scan(&h.ID, &h.Name, &h.Address, &h.Description, &varsJSON, &h.CreatedAt); err != nil {
+	if err := scan(&h.ID, &h.Name, &h.Address, &h.Description, &h.SSHCertID, &varsJSON, &h.CreatedAt); err != nil {
 		return nil, err
 	}
 	h.Vars = map[string]string{}

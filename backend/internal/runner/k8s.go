@@ -87,11 +87,18 @@ func (r *K8sRunner) RunPlaybook(
 	preCommand string,
 	vaultPassword string,
 	vaultFileContent []byte,
+	sshCertContent []byte,
 	outputCh chan<- string,
 ) RunResult {
 	// Resource names are derived from the first 8 chars of the run UUID.
 	prefix := "af-" + strings.ReplaceAll(runID, "-", "")[:8]
 	labels := map[string]string{"ansible-frontend/run-id": runID}
+
+	// If an SSH cert is provided, inject the key path into inventory before mounting.
+	// The mount path /ansible-cert/key is fixed regardless of the secret name.
+	if len(sshCertContent) > 0 && inventoryTarget != "" {
+		inventoryTarget = strings.TrimSuffix(inventoryTarget, "\n") + " ansible_ssh_private_key_file=/ansible-cert/key\n"
+	}
 
 	// ── ConfigMap: playbook YAML (+ inventory + vault vars file if any) ────────
 	cmData := map[string]string{"playbook.yml": string(playbookContent)}
@@ -124,6 +131,21 @@ func (r *K8sRunner) RunPlaybook(
 		secretName = secret.Name
 		defer r.client.CoreV1().Secrets(r.namespace).Delete(
 			context.Background(), secretName, metav1.DeleteOptions{})
+	}
+
+	// ── Secret: SSH private key (only when a host cert is attached) ──────────
+	var certSecretName string
+	if len(sshCertContent) > 0 {
+		certSecret, cerr := r.client.CoreV1().Secrets(r.namespace).Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: prefix + "-cert", Namespace: r.namespace, Labels: labels},
+			Data:       map[string][]byte{"key": sshCertContent},
+		}, metav1.CreateOptions{})
+		if cerr != nil {
+			return RunResult{Err: fmt.Errorf("create cert secret: %w", cerr)}
+		}
+		certSecretName = certSecret.Name
+		defer r.client.CoreV1().Secrets(r.namespace).Delete(
+			context.Background(), certSecretName, metav1.DeleteOptions{})
 	}
 
 	// ── Build the shell command ───────────────────────────────────────────────
@@ -167,6 +189,22 @@ func (r *K8sRunner) RunPlaybook(
 		})
 		mounts = append(mounts, corev1.VolumeMount{
 			Name: "vault", MountPath: "/ansible-vault", ReadOnly: true,
+		})
+	}
+
+	if certSecretName != "" {
+		var mode int32 = 0600
+		volumes = append(volumes, corev1.Volume{
+			Name: "cert",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  certSecretName,
+					DefaultMode: &mode,
+				},
+			},
+		})
+		mounts = append(mounts, corev1.VolumeMount{
+			Name: "cert", MountPath: "/ansible-cert", ReadOnly: true,
 		})
 	}
 

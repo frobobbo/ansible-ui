@@ -95,6 +95,7 @@ func New(dsn string) (*DB, error) {
 	db.Exec(`ALTER TABLE forms ADD COLUMN host_id TEXT REFERENCES hosts(id) ON DELETE SET NULL`)
 	db.Exec("ALTER TABLE runs ADD COLUMN batch_id TEXT")
 	db.Exec("ALTER TABLE servers ADD COLUMN execution_environment TEXT NOT NULL DEFAULT ''")
+	db.Exec("ALTER TABLE hosts ADD COLUMN ssh_cert_id TEXT REFERENCES ssh_certs(id) ON DELETE SET NULL")
 	db.Exec(`CREATE TABLE IF NOT EXISTS hosts (
 		id          TEXT PRIMARY KEY,
 		name        TEXT NOT NULL,

@@ -38,6 +38,7 @@ type RunsHandler struct {
 	playbooks    *store.PlaybookStore
 	vaults       *store.VaultStore
 	hosts        *store.HostStore
+	sshCerts     *store.SSHCertStore
 	audit        *store.AuditStore
 	jwtSvc       *auth.JWTService
 	liveRuns     sync.Map // string -> *liveRun
@@ -51,6 +52,7 @@ func NewRunsHandler(
 	playbooks *store.PlaybookStore,
 	vaults *store.VaultStore,
 	hosts *store.HostStore,
+	sshCerts *store.SSHCertStore,
 	audit *store.AuditStore,
 	jwtSvc *auth.JWTService,
 ) *RunsHandler {
@@ -62,6 +64,7 @@ func NewRunsHandler(
 		playbooks:    playbooks,
 		vaults:       vaults,
 		hosts:        hosts,
+		sshCerts:     sshCerts,
 		audit:        audit,
 		jwtSvc:       jwtSvc,
 	}
@@ -155,7 +158,7 @@ func (h *RunsHandler) launchFormRuns(form *models.Form, variables map[string]int
 				continue
 			}
 			runIDs = append(runIDs, run.ID)
-			go h.executeRunWithInventory(run.ID, form, "[all]\n"+server.Host+"\n", variables)
+			go h.executeRunWithInventory(run.ID, form, "[all]\n"+server.Host+"\n", nil, variables)
 		}
 		return "", bid, runIDs, nil
 	}
@@ -341,17 +344,21 @@ func (h *RunsHandler) executeRun(runID string, form *models.Form, variables map[
 		return
 	}
 	var inventoryTarget string
+	var sshCertContent []byte
 	if form.HostID != nil {
 		host, herr := h.hosts.Get(*form.HostID)
 		if herr == nil && host != nil {
 			inventoryTarget = buildInventory(host.Name, host.Address, host.Vars)
+			if host.SSHCertID != nil {
+				sshCertContent, _ = h.sshCerts.GetDecryptedCert(*host.SSHCertID)
+			}
 		}
 	}
-	h.executeRunWithInventory(runID, form, inventoryTarget, variables)
+	h.executeRunWithInventory(runID, form, inventoryTarget, sshCertContent, variables)
 }
 
 // executeRunWithInventory loads the job runner server then delegates to executeRunWithServer.
-func (h *RunsHandler) executeRunWithInventory(runID string, form *models.Form, inventoryTarget string, variables map[string]interface{}) {
+func (h *RunsHandler) executeRunWithInventory(runID string, form *models.Form, inventoryTarget string, sshCertContent []byte, variables map[string]interface{}) {
 	if form.ServerID == nil {
 		h.runs.Finish(runID, "failed", "form has no job runner configured")
 		return
@@ -361,13 +368,13 @@ func (h *RunsHandler) executeRunWithInventory(runID string, form *models.Form, i
 		h.runs.Finish(runID, "failed", fmt.Sprintf("runner not found: %v", err))
 		return
 	}
-	h.executeRunWithServer(runID, form, server, inventoryTarget, variables)
+	h.executeRunWithServer(runID, form, server, inventoryTarget, sshCertContent, variables)
 }
 
 // executeRunWithServer performs ansible execution for a specific server.
 // It dispatches to the K8s Job runner when the server has an ExecutionEnvironment
 // image configured, and falls back to the SSH runner otherwise.
-func (h *RunsHandler) executeRunWithServer(runID string, form *models.Form, server *models.Server, inventoryTarget string, variables map[string]interface{}) {
+func (h *RunsHandler) executeRunWithServer(runID string, form *models.Form, server *models.Server, inventoryTarget string, sshCertContent []byte, variables map[string]interface{}) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	lr := &liveRun{cancelFn: cancel}
@@ -437,7 +444,7 @@ func (h *RunsHandler) executeRunWithServer(runID string, form *models.Form, serv
 			return
 		}
 		result = k8s.RunPlaybook(ctx, runID, server.ExecutionEnvironment, playbookContent,
-			inventoryTarget, variables, server.PreCommand, vaultPassword, vaultFileContent, outputCh)
+			inventoryTarget, variables, server.PreCommand, vaultPassword, vaultFileContent, sshCertContent, outputCh)
 	} else {
 		// ── SSH runner ────────────────────────────────────────────────────────
 		sshClient, cerr := runner.Connect(server.Host, server.Port, server.Username, server.SSHPrivateKey)
@@ -458,7 +465,7 @@ func (h *RunsHandler) executeRunWithServer(runID string, form *models.Form, serv
 		}
 		defer sshClient.RunCommand(fmt.Sprintf("rm -f '%s'", remotePath))
 
-		result = sshClient.RunPlaybook(ctx, remotePath, variables, inventoryTarget, server.PreCommand, vaultPassword, vaultFileContent, outputCh)
+		result = sshClient.RunPlaybook(ctx, remotePath, variables, inventoryTarget, server.PreCommand, vaultPassword, vaultFileContent, sshCertContent, outputCh)
 	}
 
 	close(outputCh)

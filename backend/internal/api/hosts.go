@@ -47,13 +47,14 @@ func (h *HostsHandler) Create(c *gin.Context) {
 		Name        string            `json:"name" binding:"required"`
 		Address     string            `json:"address" binding:"required"`
 		Description string            `json:"description"`
+		SSHCertID   *string           `json:"ssh_cert_id"`
 		Vars        map[string]string `json:"vars"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	host, err := h.hosts.Create(req.Name, req.Address, req.Description, req.Vars)
+	host, err := h.hosts.Create(req.Name, req.Address, req.Description, req.SSHCertID, req.Vars)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -69,13 +70,14 @@ func (h *HostsHandler) Update(c *gin.Context) {
 		Name        string            `json:"name" binding:"required"`
 		Address     string            `json:"address" binding:"required"`
 		Description string            `json:"description"`
+		SSHCertID   *string           `json:"ssh_cert_id"`
 		Vars        map[string]string `json:"vars"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	host, err := h.hosts.Update(id, req.Name, req.Address, req.Description, req.Vars)
+	host, err := h.hosts.Update(id, req.Name, req.Address, req.Description, req.SSHCertID, req.Vars)
 	if err != nil || host == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "host not found"})
 		return
