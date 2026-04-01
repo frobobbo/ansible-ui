@@ -401,6 +401,7 @@ func (h *RunsHandler) executeRunWithServer(runID string, form *models.Form, serv
 
 	var vaultPassword string
 	var vaultFileContent []byte
+	var vaultFileName string
 	if form.VaultID != nil {
 		vaultPassword, err = h.vaults.GetDecryptedPassword(*form.VaultID)
 		if err != nil {
@@ -417,6 +418,9 @@ func (h *RunsHandler) executeRunWithServer(runID string, form *models.Form, serv
 			if err != nil {
 				fail(fmt.Sprintf("read vault file: %v", err))
 				return
+			}
+			if vault, _ := h.vaults.Get(*form.VaultID); vault != nil {
+				vaultFileName = vault.VaultFileName
 			}
 		}
 	}
@@ -444,7 +448,7 @@ func (h *RunsHandler) executeRunWithServer(runID string, form *models.Form, serv
 			return
 		}
 		result = k8s.RunPlaybook(ctx, runID, server.ExecutionEnvironment, playbookContent,
-			inventoryTarget, variables, server.PreCommand, vaultPassword, vaultFileContent, sshCertContent, outputCh)
+			inventoryTarget, variables, server.PreCommand, vaultPassword, vaultFileContent, vaultFileName, sshCertContent, outputCh)
 	} else {
 		// ── SSH runner ────────────────────────────────────────────────────────
 		sshClient, cerr := runner.Connect(server.Host, server.Port, server.Username, server.SSHPrivateKey)
@@ -465,7 +469,7 @@ func (h *RunsHandler) executeRunWithServer(runID string, form *models.Form, serv
 		}
 		defer sshClient.RunCommand(fmt.Sprintf("rm -f '%s'", remotePath))
 
-		result = sshClient.RunPlaybook(ctx, remotePath, variables, inventoryTarget, server.PreCommand, vaultPassword, vaultFileContent, sshCertContent, outputCh)
+		result = sshClient.RunPlaybook(ctx, remotePath, variables, inventoryTarget, server.PreCommand, vaultPassword, vaultFileContent, vaultFileName, sshCertContent, outputCh)
 	}
 
 	close(outputCh)

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 
 	"golang.org/x/crypto/ssh"
@@ -28,7 +29,7 @@ type RunResult struct {
 // and passed via --extra-vars "@path" so ansible decrypts it automatically.
 // Lines of output are sent to outputCh as they arrive.
 // The caller must close outputCh after this returns.
-func (c *SSHClient) RunPlaybook(ctx context.Context, playbookPath string, variables map[string]interface{}, inventoryTarget string, preCommand string, vaultPassword string, vaultFileContent []byte, sshCertContent []byte, outputCh chan<- string) RunResult {
+func (c *SSHClient) RunPlaybook(ctx context.Context, playbookPath string, variables map[string]interface{}, inventoryTarget string, preCommand string, vaultPassword string, vaultFileContent []byte, vaultFileName string, sshCertContent []byte, outputCh chan<- string) RunResult {
 	varJSON, err := json.Marshal(variables)
 	if err != nil {
 		return RunResult{Err: fmt.Errorf("marshal vars: %w", err)}
@@ -66,7 +67,9 @@ func (c *SSHClient) RunPlaybook(ctx context.Context, playbookPath string, variab
 		ansibleCmd += fmt.Sprintf(" --vault-password-file '%s'", vaultPassPath)
 	}
 
-	// Upload vault vars file to remote and pass as extra-vars
+	// Upload vault vars file to remote and pass as extra-vars.
+	// Also place it at /tmp/<stem>/<filename> so playbooks using the
+	// vars_files: ./creds/creds.yml (stem-as-dir) convention find it.
 	if len(vaultFileContent) > 0 {
 		vaultVarsPath := strings.TrimSuffix(playbookPath, ".yml") + "-vault-vars.yml"
 		if err := c.UploadFile(vaultFileContent, vaultVarsPath); err != nil {
@@ -74,6 +77,17 @@ func (c *SSHClient) RunPlaybook(ctx context.Context, playbookPath string, variab
 		}
 		defer c.RunCommand(fmt.Sprintf("rm -f '%s'", vaultVarsPath))
 		ansibleCmd += fmt.Sprintf(" --extra-vars '@%s'", vaultVarsPath)
+
+		if vaultFileName != "" {
+			stem := strings.TrimSuffix(vaultFileName, filepath.Ext(vaultFileName))
+			if stem != "" && stem != vaultFileName {
+				stemPath := "/tmp/" + stem + "/" + vaultFileName
+				c.RunCommand("mkdir -p '/tmp/" + stem + "'")
+				if err := c.UploadFile(vaultFileContent, stemPath); err == nil {
+					defer c.RunCommand(fmt.Sprintf("rm -rf '/tmp/%s'", stem))
+				}
+			}
+		}
 	}
 
 	var cmd string

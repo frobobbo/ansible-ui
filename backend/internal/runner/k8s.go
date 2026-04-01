@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -87,6 +88,7 @@ func (r *K8sRunner) RunPlaybook(
 	preCommand string,
 	vaultPassword string,
 	vaultFileContent []byte,
+	vaultFileName string,
 	sshCertContent []byte,
 	outputCh chan<- string,
 ) RunResult {
@@ -175,6 +177,15 @@ func (r *K8sRunner) RunPlaybook(
 	preamble := passwdFix
 	if len(sshCertContent) > 0 {
 		preamble += " && cp /ansible-cert/key /tmp/ansible-key && chmod 600 /tmp/ansible-key"
+	}
+	// If a vault file was uploaded, also place it at /ansible/<stem>/<filename> so
+	// playbooks that use vars_files: ./creds/creds.yml (stem-as-dir convention) find it.
+	if len(vaultFileContent) > 0 && vaultFileName != "" {
+		stem := strings.TrimSuffix(vaultFileName, filepath.Ext(vaultFileName))
+		if stem != "" && stem != vaultFileName {
+			preamble += fmt.Sprintf(" && mkdir -p /ansible/%s && cp /ansible/vault-vars.yml /ansible/%s/%s",
+				stem, stem, vaultFileName)
+		}
 	}
 
 	shellCmd := preamble + " && " + ansibleCmd
