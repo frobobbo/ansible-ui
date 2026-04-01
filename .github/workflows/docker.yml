@@ -3,8 +3,12 @@ name: Build & Push Docker Image
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'execution-environment/**'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'execution-environment/**'
 
 env:
   REGISTRY: ghcr.io
