@@ -97,13 +97,10 @@ export const servers = {
 export const playbooks = {
 	list: () => request<Playbook[]>('/playbooks'),
 	get: (id: string) => request<Playbook>(`/playbooks/${id}`),
-	upload: (name: string, description: string, file: File) => {
-		const fd = new FormData();
-		fd.append('name', name);
-		fd.append('description', description);
-		fd.append('file', file);
-		return request<Playbook>('/playbooks', { method: 'POST', body: fd });
-	},
+	create: (data: { name: string; description: string; repo_url: string; branch: string; playbook_path: string; token?: string }) =>
+		request<Playbook>('/playbooks', { method: 'POST', body: JSON.stringify(data) }),
+	update: (id: string, data: { name: string; description: string; repo_url: string; branch: string; playbook_path: string; token?: string }) =>
+		request<Playbook>(`/playbooks/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 	delete: (id: string) => request<void>(`/playbooks/${id}`, { method: 'DELETE' }),
 };
 

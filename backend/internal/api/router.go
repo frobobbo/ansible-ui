@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUploadDir string, formImageDir string, jwtSecret string, runsH *RunsHandler, sched *scheduler.Scheduler, sshCertsH *SSHCertsHandler, hostsH *HostsHandler, eeH *EEEditorHandler) *gin.Engine {
+func NewRouter(db *store.DB, jwtSvc *auth.JWTService, vaultUploadDir string, formImageDir string, jwtSecret string, runsH *RunsHandler, sched *scheduler.Scheduler, sshCertsH *SSHCertsHandler, hostsH *HostsHandler, eeH *EEEditorHandler) *gin.Engine {
 	r := gin.Default()
 	// Disable automatic redirects that generate http:// Location headers when
 	// the app runs behind an SSL-terminating reverse proxy (e.g. Nginx Proxy Manager).
@@ -42,7 +42,7 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 	usersH := newUsersHandler(db.Users(), auditStore)
 	serversH := newServersHandler(db.Servers(), auditStore)
 	serverGroupsH := newServerGroupsHandler(db.ServerGroups(), auditStore)
-	playbooksH := newPlaybooksHandler(db.Playbooks(), auditStore, uploadDir)
+	playbooksH := newPlaybooksHandler(db.Playbooks(), auditStore)
 	formsH := newFormsHandler(db.Forms(), auditStore, formImageDir, sched)
 	vaultsH := newVaultsHandler(vaultStore, auditStore, vaultUploadDir)
 
@@ -93,10 +93,11 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 			protected.GET("/server-groups/:id/members", serverGroupsH.GetMembers)
 			protected.PUT("/server-groups/:id/members", auth.RequireAdmin, serverGroupsH.SetMembers)
 
-			// Playbooks
+			// Playbook Sources (git repos)
 			protected.GET("/playbooks", playbooksH.List)
 			protected.GET("/playbooks/:id", playbooksH.Get)
-			protected.POST("/playbooks", auth.RequireAdmin, playbooksH.Upload)
+			protected.POST("/playbooks", auth.RequireAdmin, playbooksH.Create)
+			protected.PUT("/playbooks/:id", auth.RequireAdmin, playbooksH.Update)
 			protected.DELETE("/playbooks/:id", auth.RequireAdmin, playbooksH.Delete)
 
 			// Forms

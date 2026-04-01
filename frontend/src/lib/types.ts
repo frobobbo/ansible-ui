@@ -25,7 +25,10 @@ export interface Playbook {
 	id: string;
 	name: string;
 	description: string;
-	file_path: string;
+	repo_url: string;
+	branch: string;
+	playbook_path: string;
+	token?: string;
 	created_at: string;
 }
 

@@ -19,7 +19,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o ansible-frontend .
 
 # Stage 3: Minimal runtime image
 FROM alpine:3.19
-RUN apk add --no-cache ca-certificates openssh-client
+RUN apk add --no-cache ca-certificates openssh-client git
 WORKDIR /app
 COPY --from=backend /app/ansible-frontend ./ansible-frontend
 COPY --from=backend /app/frontend/dist ./frontend/dist

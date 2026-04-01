@@ -18,11 +18,14 @@ CREATE TABLE IF NOT EXISTS servers (
 );
 
 CREATE TABLE IF NOT EXISTS playbooks (
-    id          TEXT PRIMARY KEY,
-    name        TEXT NOT NULL,
-    description TEXT NOT NULL DEFAULT '',
-    file_path   TEXT NOT NULL,
-    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    id            TEXT PRIMARY KEY,
+    name          TEXT NOT NULL,
+    description   TEXT NOT NULL DEFAULT '',
+    repo_url      TEXT NOT NULL DEFAULT '',
+    branch        TEXT NOT NULL DEFAULT 'main',
+    playbook_path TEXT NOT NULL DEFAULT 'site.yml',
+    token         TEXT NOT NULL DEFAULT '',
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS vaults (

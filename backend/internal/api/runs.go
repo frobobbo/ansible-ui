@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -393,9 +396,9 @@ func (h *RunsHandler) executeRunWithServer(runID string, form *models.Form, serv
 		return
 	}
 
-	playbookContent, err := os.ReadFile(playbook.FilePath)
+	playbookContent, err := fetchPlaybookContent(ctx, playbook)
 	if err != nil {
-		fail(fmt.Sprintf("read playbook: %v", err))
+		fail(fmt.Sprintf("fetch playbook: %v", err))
 		return
 	}
 
@@ -533,6 +536,43 @@ func (h *RunsHandler) TriggerWebhook(c *gin.Context) {
 		h.audit.Log("", "webhook", "trigger", "run", runID, "", c.ClientIP())
 		c.JSON(http.StatusAccepted, gin.H{"run_id": runID, "status": "pending"})
 	}
+}
+
+// fetchPlaybookContent clones the playbook source repo at a shallow depth and
+// returns the content of the specified playbook file. The clone is removed after
+// the content is read. If a token is set it is injected into the HTTPS URL so
+// private repos work without requiring a credential helper.
+func fetchPlaybookContent(ctx context.Context, p *models.Playbook) ([]byte, error) {
+	dir, err := os.MkdirTemp("", "ansible-clone-*")
+	if err != nil {
+		return nil, fmt.Errorf("tempdir: %w", err)
+	}
+	defer os.RemoveAll(dir)
+
+	cloneURL := p.RepoURL
+	if p.Token != "" {
+		if u, uerr := url.Parse(cloneURL); uerr == nil && (u.Scheme == "https" || u.Scheme == "http") {
+			u.User = url.UserPassword("oauth2", p.Token)
+			cloneURL = u.String()
+		}
+	}
+
+	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", "--branch", p.Branch, "--single-branch", cloneURL, dir)
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	out, cerr := cmd.CombinedOutput()
+	if cerr != nil {
+		msg := string(out)
+		if p.Token != "" {
+			msg = strings.ReplaceAll(msg, p.Token, "***")
+		}
+		return nil, fmt.Errorf("git clone: %w\n%s", cerr, strings.TrimSpace(msg))
+	}
+
+	content, err := os.ReadFile(filepath.Join(dir, p.PlaybookPath))
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", p.PlaybookPath, err)
+	}
+	return content, nil
 }
 
 // buildInventory creates a simple INI inventory with one host entry.
