@@ -198,19 +198,29 @@ func (r *K8sRunner) RunPlaybook(
 			},
 		},
 	}}
-	mounts := []corev1.VolumeMount{{Name: "playbook", MountPath: "/ansible"}}
-
-	// SubPath mount places the vault file at /ansible/<stem>/<filename> so
-	// vars_files: ./creds/creds.yml resolves correctly without needing to write
-	// to the read-only ConfigMap mount.
-	if len(vaultFileContent) > 0 && vaultFileName != "" {
-		stem := strings.TrimSuffix(vaultFileName, filepath.Ext(vaultFileName))
-		if stem != "" && stem != vaultFileName {
-			mounts = append(mounts, corev1.VolumeMount{
-				Name:      "playbook",
-				MountPath: fmt.Sprintf("/ansible/%s/%s", stem, vaultFileName),
-				SubPath:   vaultFileName,
-			})
+	// Use individual SubPath mounts for each ConfigMap key so we can also place
+	// the vault file at /ansible/<stem>/<filename> without overlapping mounts.
+	mounts := []corev1.VolumeMount{
+		{Name: "playbook", MountPath: "/ansible/playbook.yml", SubPath: "playbook.yml"},
+	}
+	if inventoryTarget != "" {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name: "playbook", MountPath: "/ansible/inventory", SubPath: "inventory",
+		})
+	}
+	if len(vaultFileContent) > 0 {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name: "playbook", MountPath: "/ansible/vault-vars.yml", SubPath: "vault-vars.yml",
+		})
+		if vaultFileName != "" {
+			stem := strings.TrimSuffix(vaultFileName, filepath.Ext(vaultFileName))
+			if stem != "" && stem != vaultFileName {
+				mounts = append(mounts, corev1.VolumeMount{
+					Name:      "playbook",
+					MountPath: fmt.Sprintf("/ansible/%s/%s", stem, vaultFileName),
+					SubPath:   vaultFileName,
+				})
+			}
 		}
 	}
 
