@@ -95,9 +95,12 @@ func (r *K8sRunner) RunPlaybook(
 	labels := map[string]string{"ansible-frontend/run-id": runID}
 
 	// If an SSH cert is provided, inject the key path into inventory before mounting.
-	// The mount path /ansible-cert/key is fixed regardless of the secret name.
+	// We copy the Secret-mounted file to /tmp/ansible-key and chmod 600 it in the
+	// shell command because Secret volumes are root-owned; a non-root UID can only
+	// read them if we set defaultMode 0644, but SSH rejects keys that aren't 0600
+	// owned by the current user. Copying to /tmp gives us a user-owned 0600 copy.
 	if len(sshCertContent) > 0 && inventoryTarget != "" {
-		inventoryTarget = strings.TrimSuffix(inventoryTarget, "\n") + " ansible_ssh_private_key_file=/ansible-cert/key\n"
+		inventoryTarget = strings.TrimSuffix(inventoryTarget, "\n") + " ansible_ssh_private_key_file=/tmp/ansible-key\n"
 	}
 
 	// ── ConfigMap: playbook YAML (+ inventory + vault vars file if any) ────────
@@ -169,10 +172,14 @@ func (r *K8sRunner) RunPlaybook(
 	// aborts with "No user exists for uid <N>". Prepend the standard OpenShift
 	// arbitrary-UID fix: write a passwd entry only when one is missing.
 	passwdFix := `if ! whoami &>/dev/null && [ -w /etc/passwd ]; then echo "user:x:$(id -u):$(id -g)::/tmp:/bin/sh" >> /etc/passwd; fi`
+	preamble := passwdFix
+	if len(sshCertContent) > 0 {
+		preamble += " && cp /ansible-cert/key /tmp/ansible-key && chmod 600 /tmp/ansible-key"
+	}
 
-	shellCmd := passwdFix + " && " + ansibleCmd
+	shellCmd := preamble + " && " + ansibleCmd
 	if preCommand != "" {
-		shellCmd = passwdFix + " && " + preCommand + " && " + ansibleCmd
+		shellCmd = preamble + " && " + preCommand + " && " + ansibleCmd
 	}
 
 	// ── Volumes & mounts ─────────────────────────────────────────────────────
@@ -199,7 +206,7 @@ func (r *K8sRunner) RunPlaybook(
 	}
 
 	if certSecretName != "" {
-		var mode int32 = 0600
+		var mode int32 = 0644 // readable by non-root; shell cmd copies to /tmp and chmod 600
 		volumes = append(volumes, corev1.Volume{
 			Name: "cert",
 			VolumeSource: corev1.VolumeSource{
