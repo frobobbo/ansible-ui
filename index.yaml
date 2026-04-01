@@ -3,6 +3,25 @@ entries:
   ansible-ui:
   - apiVersion: v2
     appVersion: latest
+    created: "2026-04-01T17:24:33.622144549Z"
+    description: Self-hosted web UI for running Ansible playbooks via SSH
+    digest: 3a8d5dd9d3f1d21a8bd08dc914e4310e7238938b9826f134a175563901c23031
+    home: https://github.com/frobobbo/ansible-ui
+    keywords:
+    - ansible
+    - automation
+    - devops
+    maintainers:
+    - name: frobobbo
+    name: ansible-ui
+    sources:
+    - https://github.com/frobobbo/ansible-ui
+    type: application
+    urls:
+    - https://github.com/frobobbo/ansible-ui/releases/download/ansible-ui-0.1.4/ansible-ui-0.1.4.tgz
+    version: 0.1.4
+  - apiVersion: v2
+    appVersion: latest
     created: "2026-04-01T17:14:29.156378547Z"
     description: Self-hosted web UI for running Ansible playbooks via SSH
     digest: c569fdeea546f51157f0392d5c0aafae8b3ab1161a3080fcd2797df6e274b9e7
@@ -58,4 +77,4 @@ entries:
     urls:
     - https://github.com/frobobbo/ansible-ui/releases/download/ansible-ui-0.1.1/ansible-ui-0.1.1.tgz
     version: 0.1.1
-generated: "2026-04-01T17:14:29.15639658Z"
+generated: "2026-04-01T17:24:33.622163043Z"
