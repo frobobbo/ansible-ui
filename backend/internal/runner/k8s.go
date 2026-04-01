@@ -233,6 +233,7 @@ func (r *K8sRunner) RunPlaybook(
 						Env: []corev1.EnvVar{
 							{Name: "ANSIBLE_FORCE_COLOR", Value: "1"},
 							{Name: "HOME", Value: "/tmp"},
+							{Name: "ANSIBLE_HOST_KEY_CHECKING", Value: "False"},
 						},
 						VolumeMounts: mounts,
 					}},
