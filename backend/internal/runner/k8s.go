@@ -164,9 +164,15 @@ func (r *K8sRunner) RunPlaybook(
 	if len(vaultFileContent) > 0 {
 		ansibleCmd += " --extra-vars '@/ansible/vault-vars.yml'"
 	}
-	shellCmd := ansibleCmd
+	// EE containers often run as a non-root UID that has no /etc/passwd entry.
+	// SSH requires the current UID to resolve to a username; if it can't, it
+	// aborts with "No user exists for uid <N>". Prepend the standard OpenShift
+	// arbitrary-UID fix: write a passwd entry only when one is missing.
+	passwdFix := `if ! whoami &>/dev/null && [ -w /etc/passwd ]; then echo "user:x:$(id -u):$(id -g)::/tmp:/bin/sh" >> /etc/passwd; fi`
+
+	shellCmd := passwdFix + " && " + ansibleCmd
 	if preCommand != "" {
-		shellCmd = preCommand + " && " + ansibleCmd
+		shellCmd = passwdFix + " && " + preCommand + " && " + ansibleCmd
 	}
 
 	// ── Volumes & mounts ─────────────────────────────────────────────────────
