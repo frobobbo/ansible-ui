@@ -109,3 +109,15 @@ rbac:
   # Kubernetes Jobs, ConfigMaps, Secrets, and Pod logs — required for
   # the Container (Execution Environment) runner.
   create: true
+
+# ── Execution Environment editor ─────────────────────────────────────────────
+# Enables the in-app editor that commits changes to execution-environment/**
+# directly to GitHub, which triggers the build-ee.yml workflow to rebuild
+# and push ghcr.io/<owner>/ansible-ee:latest.
+#
+# GITHUB_TOKEN must be a fine-grained PAT (or classic PAT) with
+# Contents: Read & Write permission on the repository.
+eeEditor:
+  githubToken: ""       # required — set to your GitHub PAT
+  githubRepo: ""        # required — e.g. frobobbo/ansible-ui
+  githubBranch: "main"  # branch to commit to

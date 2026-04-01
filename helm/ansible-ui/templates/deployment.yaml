@@ -56,6 +56,18 @@ spec:
                   key: ADMIN_PASSWORD
             - name: PORT
               value: "8080"
+            {{- if .Values.eeEditor.githubToken }}
+            - name: GITHUB_TOKEN
+              value: {{ .Values.eeEditor.githubToken | quote }}
+            {{- end }}
+            {{- if .Values.eeEditor.githubRepo }}
+            - name: GITHUB_REPO
+              value: {{ .Values.eeEditor.githubRepo | quote }}
+            {{- end }}
+            {{- if .Values.eeEditor.githubBranch }}
+            - name: GITHUB_BRANCH
+              value: {{ .Values.eeEditor.githubBranch | quote }}
+            {{- end }}
           {{- with .Values.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}
