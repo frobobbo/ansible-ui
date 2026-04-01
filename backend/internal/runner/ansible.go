@@ -38,8 +38,12 @@ func (c *SSHClient) RunPlaybook(ctx context.Context, playbookPath string, variab
 	varStr := strings.ReplaceAll(string(varJSON), "'", `'"'"'`)
 	ansibleCmd := fmt.Sprintf("ansible-playbook '%s' --extra-vars '%s'", playbookPath, varStr)
 	if inventoryTarget != "" {
-		invTarget := strings.ReplaceAll(inventoryTarget, "'", `'"'"'`)
-		ansibleCmd = fmt.Sprintf("ansible-playbook '%s' -i '%s,' --extra-vars '%s'", playbookPath, invTarget, varStr)
+		inventoryPath := strings.TrimSuffix(playbookPath, ".yml") + "-inventory"
+		if err := c.UploadFile([]byte(inventoryTarget), inventoryPath); err != nil {
+			return RunResult{Err: fmt.Errorf("upload inventory: %w", err)}
+		}
+		defer c.RunCommand(fmt.Sprintf("rm -f '%s'", inventoryPath))
+		ansibleCmd = fmt.Sprintf("ansible-playbook '%s' -i '%s' --extra-vars '%s'", playbookPath, inventoryPath, varStr)
 	}
 
 	// Upload vault password to a temp file on remote and add the flag

@@ -155,7 +155,7 @@ func (h *RunsHandler) launchFormRuns(form *models.Form, variables map[string]int
 				continue
 			}
 			runIDs = append(runIDs, run.ID)
-			go h.executeRunWithInventory(run.ID, form, server.Host, variables)
+			go h.executeRunWithInventory(run.ID, form, "[all]\n"+server.Host+"\n", variables)
 		}
 		return "", bid, runIDs, nil
 	}
@@ -344,7 +344,7 @@ func (h *RunsHandler) executeRun(runID string, form *models.Form, variables map[
 	if form.HostID != nil {
 		host, herr := h.hosts.Get(*form.HostID)
 		if herr == nil && host != nil {
-			inventoryTarget = host.Address
+			inventoryTarget = buildInventory(host.Name, host.Address, host.Vars)
 		}
 	}
 	h.executeRunWithInventory(runID, form, inventoryTarget, variables)
@@ -522,6 +522,20 @@ func (h *RunsHandler) TriggerWebhook(c *gin.Context) {
 		h.audit.Log("", "webhook", "trigger", "run", runID, "", c.ClientIP())
 		c.JSON(http.StatusAccepted, gin.H{"run_id": runID, "status": "pending"})
 	}
+}
+
+// buildInventory creates a simple INI inventory with one host entry.
+// The host is placed in [all] using its name as the alias, with ansible_host
+// set to address when it differs from name, and any host vars appended inline.
+func buildInventory(name, address string, vars map[string]string) string {
+	entry := name
+	if address != "" && address != name {
+		entry += " ansible_host=" + address
+	}
+	for k, v := range vars {
+		entry += " " + k + "=" + v
+	}
+	return "[all]\n" + entry + "\n"
 }
 
 // TriggerScheduledRun is the callback invoked by the scheduler on each cron tick.
