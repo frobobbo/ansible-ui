@@ -112,6 +112,11 @@ func (r *K8sRunner) RunPlaybook(
 	}
 	if len(vaultFileContent) > 0 {
 		cmData["vault-vars.yml"] = string(vaultFileContent)
+		// Also store under the original filename so the SubPath mount can place it
+		// at /ansible/<stem>/<filename> for vars_files: ./creds/creds.yml lookups.
+		if vaultFileName != "" {
+			cmData[vaultFileName] = string(vaultFileContent)
+		}
 	}
 	cm, err := r.client.CoreV1().ConfigMaps(r.namespace).Create(ctx, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: prefix + "-cm", Namespace: r.namespace, Labels: labels},
@@ -178,15 +183,6 @@ func (r *K8sRunner) RunPlaybook(
 	if len(sshCertContent) > 0 {
 		preamble += " && cp /ansible-cert/key /tmp/ansible-key && chmod 600 /tmp/ansible-key"
 	}
-	// If a vault file was uploaded, also place it at /ansible/<stem>/<filename> so
-	// playbooks that use vars_files: ./creds/creds.yml (stem-as-dir convention) find it.
-	if len(vaultFileContent) > 0 && vaultFileName != "" {
-		stem := strings.TrimSuffix(vaultFileName, filepath.Ext(vaultFileName))
-		if stem != "" && stem != vaultFileName {
-			preamble += fmt.Sprintf(" && mkdir -p /ansible/%s && cp /ansible/vault-vars.yml /ansible/%s/%s",
-				stem, stem, vaultFileName)
-		}
-	}
 
 	shellCmd := preamble + " && " + ansibleCmd
 	if preCommand != "" {
@@ -203,6 +199,20 @@ func (r *K8sRunner) RunPlaybook(
 		},
 	}}
 	mounts := []corev1.VolumeMount{{Name: "playbook", MountPath: "/ansible"}}
+
+	// SubPath mount places the vault file at /ansible/<stem>/<filename> so
+	// vars_files: ./creds/creds.yml resolves correctly without needing to write
+	// to the read-only ConfigMap mount.
+	if len(vaultFileContent) > 0 && vaultFileName != "" {
+		stem := strings.TrimSuffix(vaultFileName, filepath.Ext(vaultFileName))
+		if stem != "" && stem != vaultFileName {
+			mounts = append(mounts, corev1.VolumeMount{
+				Name:      "playbook",
+				MountPath: fmt.Sprintf("/ansible/%s/%s", stem, vaultFileName),
+				SubPath:   vaultFileName,
+			})
+		}
+	}
 
 	if secretName != "" {
 		volumes = append(volumes, corev1.Volume{
