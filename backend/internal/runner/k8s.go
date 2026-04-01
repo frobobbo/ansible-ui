@@ -184,7 +184,10 @@ func (r *K8sRunner) RunPlaybook(
 						Name:         "ansible",
 						Image:        image,
 						Command:      []string{"sh", "-c", shellCmd},
-						Env:          []corev1.EnvVar{{Name: "ANSIBLE_FORCE_COLOR", Value: "1"}},
+						Env: []corev1.EnvVar{
+							{Name: "ANSIBLE_FORCE_COLOR", Value: "1"},
+							{Name: "HOME", Value: "/tmp"},
+						},
 						VolumeMounts: mounts,
 					}},
 					Volumes: volumes,
