@@ -58,7 +58,10 @@ spec:
               value: "8080"
             {{- if .Values.eeEditor.githubToken }}
             - name: GITHUB_TOKEN
-              value: {{ .Values.eeEditor.githubToken | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ansible-ui.secretName" . }}
+                  key: GITHUB_TOKEN
             {{- end }}
             {{- if .Values.eeEditor.githubRepo }}
             - name: GITHUB_REPO
