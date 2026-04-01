@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import { authStore } from './stores';
-import type { AuditLog, AuthResponse, Form, FormField, Host, Playbook, Run, Server, ServerGroup, SSHCert, User, Vault } from './types';
+import type { AuditLog, AuthResponse, EEFiles, Form, FormField, Host, Playbook, Run, Server, ServerGroup, SSHCert, User, Vault } from './types';
 
 export class ApiError extends Error {
 	constructor(public status: number, message: string) {
@@ -180,6 +180,12 @@ export const sshCerts = {
 		return request<SSHCert>(`/ssh-certs/${id}/upload`, { method: 'POST', body: fd });
 	},
 	deleteFile: (id: string) => request<SSHCert>(`/ssh-certs/${id}/file`, { method: 'DELETE' }),
+};
+
+export const ee = {
+	get: () => request<EEFiles>('/ee'),
+	update: (data: { message: string; files: EEFiles }) =>
+		request<{ status: string }>('/ee', { method: 'PUT', body: JSON.stringify(data) }),
 };
 
 export const audit = {

@@ -57,8 +57,11 @@ func main() {
 	// Hosts handler
 	hostsH := api.NewHostsHandler(db.Hosts(), db.Audit())
 
+	// EE Editor handler (GitHub Contents API proxy)
+	eeH := api.NewEEEditorHandler()
+
 	// Router
-	router := api.NewRouter(db, jwtSvc, "./data/playbooks", "./data/vaults", "./data/form-images", jwtSecret, runsH, sched, sshCertsH, hostsH)
+	router := api.NewRouter(db, jwtSvc, "./data/playbooks", "./data/vaults", "./data/form-images", jwtSecret, runsH, sched, sshCertsH, hostsH, eeH)
 
 	port := os.Getenv("PORT")
 	if port == "" {

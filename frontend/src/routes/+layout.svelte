@@ -128,6 +128,14 @@
 							</svg>
 							Host Groups
 						</a>
+						<a href="/ee" class="nav-link" class:active={$page.url.pathname.startsWith('/ee')}>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<rect x="3" y="3" width="18" height="18" rx="2"/>
+								<path d="M9 9l3 3-3 3"/>
+								<line x1="13" y1="15" x2="16" y2="15"/>
+							</svg>
+							EE Editor
+						</a>
 					</div>
 
 					<div class="nav-group">

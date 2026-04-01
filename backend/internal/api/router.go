@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUploadDir string, formImageDir string, jwtSecret string, runsH *RunsHandler, sched *scheduler.Scheduler, sshCertsH *SSHCertsHandler, hostsH *HostsHandler) *gin.Engine {
+func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUploadDir string, formImageDir string, jwtSecret string, runsH *RunsHandler, sched *scheduler.Scheduler, sshCertsH *SSHCertsHandler, hostsH *HostsHandler, eeH *EEEditorHandler) *gin.Engine {
 	r := gin.Default()
 	// Disable automatic redirects that generate http:// Location headers when
 	// the app runs behind an SSL-terminating reverse proxy (e.g. Nginx Proxy Manager).
@@ -131,6 +131,10 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, uploadDir string, vaultUpl
 			protected.DELETE("/ssh-certs/:id", auth.RequireAdmin, sshCertsH.Delete)
 			protected.POST("/ssh-certs/:id/upload", auth.RequireAdmin, sshCertsH.Upload)
 			protected.DELETE("/ssh-certs/:id/file", auth.RequireAdmin, sshCertsH.DeleteFile)
+
+			// EE Editor (admin-only; reads/writes GitHub Contents API)
+			protected.GET("/ee", auth.RequireAdmin, eeH.Get)
+			protected.PUT("/ee", auth.RequireAdmin, eeH.Update)
 
 			// Runs
 			protected.GET("/runs", runsH.List)

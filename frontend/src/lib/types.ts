@@ -125,3 +125,11 @@ export interface AuthResponse {
 	token: string;
 	user: User;
 }
+
+export interface EEFileContent { content: string; sha: string; }
+export interface EEFiles {
+	execution_environment_yml: EEFileContent;
+	requirements_yml: EEFileContent;
+	requirements_txt: EEFileContent;
+	bindep_txt: EEFileContent;
+}
