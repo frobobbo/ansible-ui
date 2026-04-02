@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log"
 	"net/http"
 	"os"
 	"sync"
@@ -131,7 +132,8 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 
 	token, err := h.users.CreateResetToken(user.ID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create reset token"})
+		log.Printf("[auth] CreateResetToken failed for user %s: %v", user.ID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create reset token: " + err.Error()})
 		return
 	}
 
