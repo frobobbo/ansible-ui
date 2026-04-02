@@ -164,6 +164,11 @@ export const hosts = {
 	update: (id: string, data: { name: string; address: string; description: string; ssh_cert_id?: string | null; vars: Record<string, string> }) =>
 		request<Host>(`/hosts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 	delete: (id: string) => request<void>(`/hosts/${id}`, { method: 'DELETE' }),
+	importFile: (file: File) => {
+		const fd = new FormData();
+		fd.append('file', file);
+		return request<{ created: string[]; skipped: string[]; errors: string[] }>('/hosts/import', { method: 'POST', body: fd });
+	},
 };
 
 export const sshCerts = {

@@ -77,6 +77,7 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, vaultUploadDir string, for
 			protected.GET("/hosts", hostsH.List)
 			protected.GET("/hosts/:id", hostsH.Get)
 			protected.POST("/hosts", auth.RequireAdmin, hostsH.Create)
+			protected.POST("/hosts/import", auth.RequireAdmin, hostsH.Import)
 			protected.PUT("/hosts/:id", auth.RequireAdmin, hostsH.Update)
 			protected.DELETE("/hosts/:id", auth.RequireAdmin, hostsH.Delete)
 
