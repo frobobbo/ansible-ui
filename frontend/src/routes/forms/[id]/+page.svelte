@@ -278,6 +278,54 @@
 			{/if}
 		</div>
 
+		<!-- ── Fields ── -->
+		<div class="card">
+			<div class="section-header">
+				<h2>Fields</h2>
+				<button type="button" class="btn btn-secondary btn-sm" onclick={addField}>+ Add Field</button>
+			</div>
+			{#if fields.length === 0}
+				<p class="empty-state" style="padding:0.5rem 0">No fields. Add fields to capture Ansible variables.</p>
+			{/if}
+			{#each fields as field, i}
+				<div class="field-row">
+					<div class="field-grid">
+						<div class="form-group">
+							<label>Variable Name</label>
+							<input class="form-control" bind:value={field.name} placeholder="e.g. db_host" required />
+						</div>
+						<div class="form-group">
+							<label>Label</label>
+							<input class="form-control" bind:value={field.label} required />
+						</div>
+						<div class="form-group">
+							<label>Type</label>
+							<select class="form-control" bind:value={field.field_type}>
+								<option value="text">Text</option>
+								<option value="number">Number</option>
+								<option value="bool">Boolean</option>
+								<option value="select">Select</option>
+							</select>
+						</div>
+						<div class="form-group">
+							<label>Default</label>
+							<input class="form-control" bind:value={field.default_value} />
+						</div>
+						{#if field.field_type === 'select'}
+							<div class="form-group" style="grid-column: span 2">
+								<label>Options (comma-separated)</label>
+								<input class="form-control" value={getOptions(field)} oninput={(e) => setOptions(field, (e.target as HTMLInputElement).value)} />
+							</div>
+						{/if}
+						<div class="form-group field-required">
+							<label><input type="checkbox" bind:checked={field.required} /> Required</label>
+						</div>
+					</div>
+					<button type="button" class="btn btn-sm btn-danger field-remove" onclick={() => removeField(i)}>✕</button>
+				</div>
+			{/each}
+		</div>
+
 		<!-- ── Runner ── -->
 		<div class="card">
 			<h2>Job Runner</h2>
@@ -328,54 +376,6 @@
 					</label>
 				{/if}
 			</div>
-		</div>
-
-		<!-- ── Fields ── -->
-		<div class="card">
-			<div class="section-header">
-				<h2>Fields</h2>
-				<button type="button" class="btn btn-secondary btn-sm" onclick={addField}>+ Add Field</button>
-			</div>
-			{#if fields.length === 0}
-				<p class="empty-state" style="padding:1rem 0">No fields. Add fields to capture Ansible variables.</p>
-			{/if}
-			{#each fields as field, i}
-				<div class="field-row">
-					<div class="field-grid">
-						<div class="form-group">
-							<label>Variable Name</label>
-							<input class="form-control" bind:value={field.name} placeholder="e.g. db_host" required />
-						</div>
-						<div class="form-group">
-							<label>Label</label>
-							<input class="form-control" bind:value={field.label} required />
-						</div>
-						<div class="form-group">
-							<label>Type</label>
-							<select class="form-control" bind:value={field.field_type}>
-								<option value="text">Text</option>
-								<option value="number">Number</option>
-								<option value="bool">Boolean</option>
-								<option value="select">Select</option>
-							</select>
-						</div>
-						<div class="form-group">
-							<label>Default</label>
-							<input class="form-control" bind:value={field.default_value} />
-						</div>
-						{#if field.field_type === 'select'}
-							<div class="form-group" style="grid-column: span 2">
-								<label>Options (comma-separated)</label>
-								<input class="form-control" value={getOptions(field)} oninput={(e) => setOptions(field, (e.target as HTMLInputElement).value)} />
-							</div>
-						{/if}
-						<div class="form-group field-required">
-							<label><input type="checkbox" bind:checked={field.required} /> Required</label>
-						</div>
-					</div>
-					<button type="button" class="btn btn-sm btn-danger field-remove" onclick={() => removeField(i)}>✕</button>
-				</div>
-			{/each}
 		</div>
 
 		<!-- ── Scheduling ── -->
@@ -445,37 +445,45 @@
 {/if}
 
 <style>
-	.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+	/* compact card + form spacing */
+	:global(form .card) { padding: 1rem 1.25rem; margin-bottom: 0.75rem; }
+	:global(form .card h2) { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin: 0 0 0.75rem; }
+	:global(form .form-group) { margin-bottom: 0.6rem; }
+	:global(form .form-group:last-child) { margin-bottom: 0; }
+	:global(form .form-control) { padding: 0.3rem 0.6rem; font-size: 0.875rem; }
+	:global(form .grid-2) { gap: 0.75rem; }
+
+	.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
 	.section-header h2 { margin-bottom: 0; }
 	.toggle-tabs { display: flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; width: fit-content; }
-	.tab-btn { padding: 0.4rem 1.25rem; background: none; border: none; cursor: pointer; font-size: 0.85rem; color: var(--text-muted); transition: background 0.12s, color 0.12s; }
+	.tab-btn { padding: 0.3rem 1rem; background: none; border: none; cursor: pointer; font-size: 0.83rem; color: var(--text-muted); transition: background 0.12s, color 0.12s; }
 	.tab-btn.active { background: var(--primary); color: #fff; }
-	.loading-row { display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted); font-size: 0.875rem; padding: 0.5rem 0; }
+	.loading-row { display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted); font-size: 0.875rem; padding: 0.4rem 0; }
 	.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
 	.spinner.sm { width: 11px; height: 11px; }
 	@keyframes spin { to { transform: rotate(360deg); } }
-	.suggestions-panel { margin-top: 0.75rem; padding: 0.875rem 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
-	.suggestions-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem; }
-	.suggestion-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-	.chip { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.6rem; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 0.78rem; cursor: pointer; transition: background 0.12s, border-color 0.12s, color 0.12s; color: var(--text); }
+	.suggestions-panel { margin-top: 0.6rem; padding: 0.6rem 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
+	.suggestions-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.4rem; }
+	.suggestion-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+	.chip { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.55rem; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 0.78rem; cursor: pointer; transition: background 0.12s, border-color 0.12s, color 0.12s; color: var(--text); }
 	.chip:hover:not(.added) { background: var(--primary); border-color: var(--primary); color: white; }
 	.chip.added { background: var(--bg); color: var(--text-muted); cursor: default; border-style: dashed; }
 	.chip-type { font-size: 0.68rem; background: rgba(20,184,212,0.12); color: var(--primary); border-radius: 4px; padding: 0 0.25rem; }
 	.chip-req { font-size: 0.68rem; background: rgba(224,53,53,0.1); color: var(--danger); border-radius: 4px; padding: 0 0.25rem; }
 	.check { color: var(--success); font-size: 0.75rem; }
 	.no-suggestions { font-size: 0.8rem; color: var(--text-muted); margin: 0; }
-	.field-row { display: flex; gap: 0.75rem; align-items: flex-start; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 0.75rem; }
-	.field-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; flex: 1; }
+	.field-row { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.6rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 0.5rem; }
+	.field-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; flex: 1; }
 	.field-required { display: flex; align-items: center; }
 	.field-required label { display: flex; align-items: center; gap: 0.375rem; font-weight: normal; margin-bottom: 0; }
-	.field-remove { align-self: flex-end; margin-bottom: 1rem; }
+	.field-remove { align-self: flex-end; margin-bottom: 0.6rem; }
 	.checkbox-label { display: flex; align-items: center; gap: 0.5rem; font-weight: 500; cursor: pointer; }
-	.image-preview-row { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 0.5rem; }
-	.image-preview { width: 80px; height: 80px; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--border); }
+	.image-preview-row { display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.5rem; }
+	.image-preview { width: 64px; height: 64px; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--border); }
 	.file-badge { display: inline-flex; align-items: center; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; border-radius: 4px; padding: 0.15rem 0.5rem; font-size: 0.8rem; }
 	.file-label { cursor: pointer; display: inline-flex; align-items: center; }
 	.file-label.disabled { opacity: 0.6; cursor: not-allowed; }
-	.hint { display: block; margin-top: 0.25rem; font-size: 0.8rem; color: var(--text-muted); }
+	.hint { display: block; margin-top: 0.2rem; font-size: 0.78rem; color: var(--text-muted); }
 	.webhook-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
 	.webhook-url { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.375rem 0.625rem; font-size: 0.8rem; word-break: break-all; flex: 1; }
 </style>
