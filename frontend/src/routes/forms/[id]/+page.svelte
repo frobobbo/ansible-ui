@@ -3,57 +3,113 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { forms as formsApi, servers as serversApi, playbooks as playbooksApi, vaults as vaultsApi, serverGroups as sgApi, hosts as hostsApi, ApiError } from '$lib/api';
-	import type { Server, ServerGroup, Playbook, Vault, FormField, FieldType, Host } from '$lib/types';
+	import type { Server, ServerGroup, Playbook, Vault, FormField, FieldType, Host, VarSuggestion } from '$lib/types';
 
 	let id = $derived($page.params.id);
-	let serverList = $state<Server[]>([]);
+
+	let serverList      = $state<Server[]>([]);
 	let serverGroupList = $state<ServerGroup[]>([]);
-	let playbookList = $state<Playbook[]>([]);
-	let vaultList = $state<Vault[]>([]);
-	let hostList = $state<Host[]>([]);
-	let targetMode = $state<'host' | 'group'>('host');
-	let formData = $state({ name: '', description: '', runner_id: '', host_id: '', server_group_id: '', playbook_id: '', vault_id: '', is_quick_action: false, schedule_cron: '', schedule_enabled: false, notify_webhook: '', notify_email: '' });
-	let nextRunAt = $state<string | null>(null);
-	let webhookToken = $state('');
-	let imageName = $state('');
-	let imageUploading = $state(false);
-	let fields = $state<Partial<FormField>[]>([]);
-	let loading = $state(true);
-	let saving = $state(false);
-	let error = $state('');
+	let sourceList      = $state<Playbook[]>([]);
+	let vaultList       = $state<Vault[]>([]);
+	let hostList        = $state<Host[]>([]);
+	let targetMode      = $state<'host' | 'group'>('host');
+	let formData        = $state({ name: '', description: '', runner_id: '', host_id: '', server_group_id: '', playbook_id: '', playbook_path: '', vault_id: '', is_quick_action: false, schedule_cron: '', schedule_enabled: false, notify_webhook: '', notify_email: '' });
+	let nextRunAt       = $state<string | null>(null);
+	let webhookToken    = $state('');
+	let imageName       = $state('');
+	let imageUploading  = $state(false);
+	let fields          = $state<Partial<FormField>[]>([]);
+	let loading         = $state(true);
+	let saving          = $state(false);
+	let error           = $state('');
+
+	// Playbook file discovery
+	let playbookFiles   = $state<string[]>([]);
+	let filesLoading    = $state(false);
+	let filesError      = $state('');
+
+	// Variable suggestions
+	let suggestions     = $state<VarSuggestion[]>([]);
+	let suggestLoading  = $state(false);
 
 	onMount(async () => {
 		const [form, svList, sgList, pbList, vList, hList] = await Promise.all([
-			formsApi.get(id),
-			serversApi.list(),
-			sgApi.list(),
-			playbooksApi.list(),
-			vaultsApi.list(),
-			hostsApi.list()
+			formsApi.get(id), serversApi.list(), sgApi.list(), playbooksApi.list(), vaultsApi.list(), hostsApi.list()
 		]);
 		serverList = svList;
 		serverGroupList = sgList;
-		playbookList = pbList;
+		sourceList = pbList;
 		vaultList = vList;
 		hostList = hList;
 		if (form) {
 			targetMode = form.server_group_id ? 'group' : 'host';
-			formData = { name: form.name, description: form.description, runner_id: form.server_id ?? '', host_id: form.host_id ?? '', server_group_id: form.server_group_id ?? '', playbook_id: form.playbook_id, vault_id: form.vault_id ?? '', is_quick_action: form.is_quick_action, schedule_cron: form.schedule_cron ?? '', schedule_enabled: form.schedule_enabled ?? false, notify_webhook: form.notify_webhook ?? '', notify_email: form.notify_email ?? '' };
+			formData = {
+				name: form.name, description: form.description,
+				runner_id: form.server_id ?? '', host_id: form.host_id ?? '',
+				server_group_id: form.server_group_id ?? '',
+				playbook_id: form.playbook_id, playbook_path: form.playbook_path ?? '',
+				vault_id: form.vault_id ?? '', is_quick_action: form.is_quick_action,
+				schedule_cron: form.schedule_cron ?? '', schedule_enabled: form.schedule_enabled ?? false,
+				notify_webhook: form.notify_webhook ?? '', notify_email: form.notify_email ?? ''
+			};
 			nextRunAt = form.next_run_at ?? null;
 			webhookToken = form.webhook_token ?? '';
 			imageName = form.image_name;
 			fields = form.fields || [];
+			// Pre-load playbook files for the current source
+			if (form.playbook_id) {
+				filesLoading = true;
+				try { playbookFiles = await playbooksApi.listFiles(form.playbook_id); } catch {}
+				finally { filesLoading = false; }
+			}
 		}
 		loading = false;
 	});
+
+	async function onSourceChange() {
+		formData.playbook_path = '';
+		suggestions = [];
+		playbookFiles = [];
+		filesError = '';
+		if (!formData.playbook_id) return;
+		filesLoading = true;
+		try {
+			playbookFiles = await playbooksApi.listFiles(formData.playbook_id);
+		} catch (e) {
+			filesError = e instanceof ApiError ? e.message : 'Failed to list playbooks';
+		} finally {
+			filesLoading = false;
+		}
+	}
+
+	async function onPlaybookFileChange() {
+		suggestions = [];
+		if (!formData.playbook_id || !formData.playbook_path) return;
+		suggestLoading = true;
+		try {
+			suggestions = await playbooksApi.scanVars(formData.playbook_id, formData.playbook_path);
+		} catch {
+			// non-fatal
+		} finally {
+			suggestLoading = false;
+		}
+	}
+
+	function addSuggestion(s: VarSuggestion) {
+		if (fields.some(f => f.name === s.name)) return;
+		fields = [...fields, {
+			name: s.name, label: s.label, field_type: s.type as FieldType,
+			default_value: s.default ?? '', options: '[]', required: s.required ?? false, sort_order: fields.length,
+		}];
+	}
+
+	function isSuggestionAdded(name: string) { return fields.some(f => f.name === name); }
 
 	function addField() {
 		fields = [...fields, { name: '', label: '', field_type: 'text' as FieldType, default_value: '', options: '[]', required: false, sort_order: fields.length }];
 	}
 
-	function removeField(i: number) {
-		fields = fields.filter((_, idx) => idx !== i);
-	}
+	function removeField(i: number) { fields = fields.filter((_, idx) => idx !== i); }
 
 	function getOptions(f: Partial<FormField>) {
 		try { return JSON.parse(f.options || '[]').join(', '); } catch { return ''; }
@@ -64,12 +120,10 @@
 	}
 
 	async function save() {
-		saving = true;
-		error = '';
+		saving = true; error = '';
 		try {
 			const payload = {
-				...formData,
-				server_id: formData.runner_id,
+				...formData, server_id: formData.runner_id,
 				host_id: targetMode === 'host' ? formData.host_id : '',
 				server_group_id: targetMode === 'group' ? formData.server_group_id : '',
 				fields,
@@ -87,44 +141,26 @@
 		const file = input.files?.[0];
 		if (!file) return;
 		imageUploading = true;
-		try {
-			const updated = await formsApi.uploadImage(id, file);
-			imageName = updated.image_name;
-		} catch (err) {
-			alert(err instanceof ApiError ? err.message : 'Upload failed');
-		} finally {
-			imageUploading = false;
-			input.value = '';
-		}
+		try { const updated = await formsApi.uploadImage(id, file); imageName = updated.image_name; }
+		catch (err) { alert(err instanceof ApiError ? err.message : 'Upload failed'); }
+		finally { imageUploading = false; input.value = ''; }
 	}
 
 	async function removeImage() {
 		if (!confirm('Remove the image from this form?')) return;
-		try {
-			const updated = await formsApi.deleteImage(id);
-			imageName = updated.image_name;
-		} catch {
-			alert('Failed to remove image');
-		}
+		try { const updated = await formsApi.deleteImage(id); imageName = updated.image_name; }
+		catch { alert('Failed to remove image'); }
 	}
 
 	async function generateWebhookToken() {
-		try {
-			const updated = await formsApi.regenerateWebhookToken(id);
-			webhookToken = updated.webhook_token;
-		} catch (err) {
-			alert(err instanceof ApiError ? err.message : 'Failed to generate token');
-		}
+		try { const updated = await formsApi.regenerateWebhookToken(id); webhookToken = updated.webhook_token; }
+		catch (err) { alert(err instanceof ApiError ? err.message : 'Failed'); }
 	}
 
 	async function revokeWebhookToken() {
-		if (!confirm('Revoke the webhook token? The current URL will stop working.')) return;
-		try {
-			const updated = await formsApi.revokeWebhookToken(id);
-			webhookToken = updated.webhook_token;
-		} catch (err) {
-			alert(err instanceof ApiError ? err.message : 'Failed to revoke token');
-		}
+		if (!confirm('Revoke the webhook token?')) return;
+		try { const updated = await formsApi.revokeWebhookToken(id); webhookToken = updated.webhook_token; }
+		catch (err) { alert(err instanceof ApiError ? err.message : 'Failed'); }
 	}
 
 	let webhookUrl = $derived(webhookToken ? `${location.origin}/api/webhook/forms/${webhookToken}` : '');
@@ -143,6 +179,8 @@
 {:else}
 	{#if error}<div class="alert alert-error">{error}</div>{/if}
 	<form onsubmit={(e) => { e.preventDefault(); save(); }} autocomplete="off">
+
+		<!-- ── Basic Info ── -->
 		<div class="card">
 			<h2>Basic Info</h2>
 			<div class="grid-2">
@@ -154,58 +192,122 @@
 					<label>Description</label>
 					<input class="form-control" bind:value={formData.description} />
 				</div>
+			</div>
+		</div>
+
+		<!-- ── Target ── -->
+		<div class="card">
+			<h2>Target</h2>
+			<div class="form-group">
+				<div class="toggle-tabs">
+					<button type="button" class="tab-btn" class:active={targetMode === 'host'} onclick={() => targetMode = 'host'}>Host</button>
+					<button type="button" class="tab-btn" class:active={targetMode === 'group'} onclick={() => targetMode = 'group'}>Host Group</button>
+				</div>
+			</div>
+			{#if targetMode === 'host'}
 				<div class="form-group">
-					<label>Job Runner</label>
-					<select class="form-control" bind:value={formData.runner_id} required>
-						<option value="">Select job runner...</option>
-						{#each serverList as sv}<option value={sv.id}>{sv.name}</option>{/each}
+					<label>Host</label>
+					<select class="form-control" bind:value={formData.host_id} required>
+						<option value="">Select host...</option>
+						{#each hostList as h}<option value={h.id}>{h.name} ({h.address})</option>{/each}
 					</select>
-					<small class="hint">The server or container that executes ansible-playbook.</small>
 				</div>
+			{:else}
 				<div class="form-group">
-					<label>Target</label>
-					<div class="toggle-tabs">
-						<button type="button" class="tab-btn" class:active={targetMode === 'host'} onclick={() => targetMode = 'host'}>Host</button>
-						<button type="button" class="tab-btn" class:active={targetMode === 'group'} onclick={() => targetMode = 'group'}>Host Group</button>
-					</div>
+					<label>Host Group</label>
+					<select class="form-control" bind:value={formData.server_group_id} required>
+						<option value="">Select group...</option>
+						{#each serverGroupList as g}<option value={g.id}>{g.name}</option>{/each}
+					</select>
+					<small class="hint">One run per host in the group.</small>
 				</div>
-				<div class="form-group">
-					{#if targetMode === 'host'}
-						<label>Host</label>
-						<select class="form-control" bind:value={formData.host_id} required>
-							<option value="">Select host...</option>
-							{#each hostList as h}<option value={h.id}>{h.name} ({h.address})</option>{/each}
-						</select>
-					{:else}
-						<label>Host Group</label>
-						<select class="form-control" bind:value={formData.server_group_id} required>
-							<option value="">Select group...</option>
-							{#each serverGroupList as g}<option value={g.id}>{g.name}</option>{/each}
-						</select>
-						<small class="hint">Running this form will create one run per host in the group.</small>
-					{/if}
-				</div>
+			{/if}
+		</div>
+
+		<!-- ── Playbook ── -->
+		<div class="card">
+			<h2>Playbook</h2>
+			<div class="form-group">
+				<label>Playbook Source</label>
+				<select class="form-control" bind:value={formData.playbook_id} onchange={onSourceChange} required>
+					<option value="">Select source...</option>
+					{#each sourceList as s}<option value={s.id}>{s.name} — {s.repo_url}</option>{/each}
+				</select>
+			</div>
+
+			{#if formData.playbook_id}
 				<div class="form-group">
 					<label>Playbook</label>
-					<select class="form-control" bind:value={formData.playbook_id} required>
-						<option value="">Select playbook...</option>
-						{#each playbookList as pb}<option value={pb.id}>{pb.name}</option>{/each}
-					</select>
+					{#if filesLoading}
+						<div class="loading-row"><span class="spinner"></span> Scanning repository…</div>
+					{:else if filesError}
+						<div class="alert alert-error" style="margin:0">{filesError}</div>
+					{:else}
+						<select class="form-control" bind:value={formData.playbook_path} onchange={onPlaybookFileChange} required>
+							<option value="">Select playbook file...</option>
+							{#each playbookFiles as f}<option value={f}>{f}</option>{/each}
+						</select>
+					{/if}
 				</div>
+			{/if}
+
+			{#if formData.playbook_path && (suggestLoading || suggestions.length > 0)}
+				<div class="suggestions-panel">
+					<div class="suggestions-label">
+						Field Suggestions
+						{#if suggestLoading}<span class="spinner sm"></span>{/if}
+					</div>
+					{#if !suggestLoading}
+						<div class="suggestion-chips">
+							{#each suggestions as s}
+								<button type="button" class="chip" class:added={isSuggestionAdded(s.name)}
+									onclick={() => addSuggestion(s)}
+									title="{s.type}{s.required ? ' · required' : ''}{s.default ? ` · default: ${s.default}` : ''}"
+								>
+									{#if isSuggestionAdded(s.name)}<span class="check">✓</span>{/if}
+									{s.name}<span class="chip-type">{s.type}</span>
+									{#if s.required}<span class="chip-req">req</span>{/if}
+								</button>
+							{/each}
+						</div>
+						{#if suggestions.length === 0}
+							<p class="no-suggestions">No variables detected in this playbook.</p>
+						{/if}
+					{/if}
+				</div>
+			{/if}
+		</div>
+
+		<!-- ── Runner ── -->
+		<div class="card">
+			<h2>Job Runner</h2>
+			<div class="form-group">
+				<select class="form-control" bind:value={formData.runner_id} required>
+					<option value="">Select job runner...</option>
+					{#each serverList as sv}<option value={sv.id}>{sv.name}</option>{/each}
+				</select>
+				<small class="hint">The server or container that executes ansible-playbook.</small>
+			</div>
+		</div>
+
+		<!-- ── Options ── -->
+		<div class="card">
+			<h2>Options</h2>
+			<div class="grid-2">
 				<div class="form-group">
 					<label>Vault (optional)</label>
 					<select class="form-control" bind:value={formData.vault_id}>
 						<option value="">None</option>
 						{#each vaultList as v}<option value={v.id}>{v.name}</option>{/each}
 					</select>
-					<small class="hint">Select a vault to pass --vault-password-file when running this form.</small>
+					<small class="hint">Passes --vault-password-file when running.</small>
 				</div>
 				<div class="form-group">
 					<label class="checkbox-label">
 						<input type="checkbox" bind:checked={formData.is_quick_action} />
-						Show as Quick Action on dashboard
+						Quick Action
 					</label>
-					<small class="hint">Quick actions appear as clickable cards on the dashboard for all users.</small>
+					<small class="hint">Shows as a card on the dashboard for all users.</small>
 				</div>
 			</div>
 			<div class="form-group" style="margin-top:0.5rem">
@@ -225,10 +327,10 @@
 							onchange={(e) => uploadImage(e.currentTarget as HTMLInputElement)} />
 					</label>
 				{/if}
-				<small class="hint">Displayed on the quick action card. PNG, JPG, SVG, etc.</small>
 			</div>
 		</div>
 
+		<!-- ── Fields ── -->
 		<div class="card">
 			<div class="section-header">
 				<h2>Fields</h2>
@@ -276,6 +378,7 @@
 			{/each}
 		</div>
 
+		<!-- ── Scheduling ── -->
 		<div class="card">
 			<h2>Scheduling</h2>
 			<div class="form-group">
@@ -287,29 +390,27 @@
 			</div>
 			{#if formData.schedule_enabled}
 				<div class="form-group">
-					<label for="sched_cron">Cron Expression</label>
-					<input id="sched_cron" class="form-control" bind:value={formData.schedule_cron}
-						placeholder="0 2 * * *" required={formData.schedule_enabled} />
-					<small class="hint">5-field cron (min hr dom mon dow) or @hourly · @daily · @weekly</small>
-					{#if nextRunAt}
-						<small class="hint">Next run: {new Date(nextRunAt).toLocaleString()} UTC</small>
-					{/if}
+					<label>Cron Expression</label>
+					<input class="form-control" bind:value={formData.schedule_cron} placeholder="0 2 * * *" required={formData.schedule_enabled} />
+					<small class="hint">5-field cron or @hourly · @daily · @weekly</small>
+					{#if nextRunAt}<small class="hint">Next run: {new Date(nextRunAt).toLocaleString()}</small>{/if}
 				</div>
 			{/if}
 		</div>
 
+		<!-- ── Notifications ── -->
 		<div class="card">
 			<h2>Notifications</h2>
 			<div class="grid-2">
 				<div class="form-group">
-					<label for="notify_webhook">Webhook URL (on completion)</label>
-					<input id="notify_webhook" class="form-control" type="url" bind:value={formData.notify_webhook} placeholder="https://hooks.example.com/…" />
-					<small class="hint">Receives a POST with JSON payload when the run completes.</small>
+					<label>Webhook URL (on completion)</label>
+					<input class="form-control" type="url" bind:value={formData.notify_webhook} placeholder="https://hooks.example.com/…" />
+					<small class="hint">POST with JSON payload when the run completes.</small>
 				</div>
 				<div class="form-group">
-					<label for="notify_email">Email (on completion)</label>
-					<input id="notify_email" class="form-control" type="text" bind:value={formData.notify_email} placeholder="user@example.com" />
-					<small class="hint">Comma-separated addresses. Requires SMTP_HOST env var.</small>
+					<label>Email (on completion)</label>
+					<input class="form-control" bind:value={formData.notify_email} placeholder="user@example.com" />
+					<small class="hint">Comma-separated. Requires SMTP_HOST env var.</small>
 				</div>
 			</div>
 		</div>
@@ -320,6 +421,7 @@
 		</div>
 	</form>
 
+	<!-- ── Webhook ── -->
 	<div class="card">
 		<h2>Webhook Trigger</h2>
 		<p class="hint" style="margin-bottom:1rem">Trigger this form via an unauthenticated HTTP POST. The token acts as the credential — keep it secret.</p>
@@ -330,7 +432,7 @@
 					<code class="webhook-url">{webhookUrl}</code>
 					<button type="button" class="btn btn-sm btn-secondary" onclick={() => navigator.clipboard.writeText(webhookUrl)}>Copy</button>
 				</div>
-				<small class="hint">POST to this URL (with optional JSON body to override field defaults). No auth header needed.</small>
+				<small class="hint">POST to this URL (with optional JSON body to override field defaults).</small>
 			</div>
 			<div class="actions">
 				<button type="button" class="btn btn-secondary btn-sm" onclick={generateWebhookToken}>Regenerate</button>
@@ -345,6 +447,23 @@
 <style>
 	.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
 	.section-header h2 { margin-bottom: 0; }
+	.toggle-tabs { display: flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; width: fit-content; }
+	.tab-btn { padding: 0.4rem 1.25rem; background: none; border: none; cursor: pointer; font-size: 0.85rem; color: var(--text-muted); transition: background 0.12s, color 0.12s; }
+	.tab-btn.active { background: var(--primary); color: #fff; }
+	.loading-row { display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted); font-size: 0.875rem; padding: 0.5rem 0; }
+	.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+	.spinner.sm { width: 11px; height: 11px; }
+	@keyframes spin { to { transform: rotate(360deg); } }
+	.suggestions-panel { margin-top: 0.75rem; padding: 0.875rem 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
+	.suggestions-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem; }
+	.suggestion-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+	.chip { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.6rem; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 0.78rem; cursor: pointer; transition: background 0.12s, border-color 0.12s, color 0.12s; color: var(--text); }
+	.chip:hover:not(.added) { background: var(--primary); border-color: var(--primary); color: white; }
+	.chip.added { background: var(--bg); color: var(--text-muted); cursor: default; border-style: dashed; }
+	.chip-type { font-size: 0.68rem; background: rgba(20,184,212,0.12); color: var(--primary); border-radius: 4px; padding: 0 0.25rem; }
+	.chip-req { font-size: 0.68rem; background: rgba(224,53,53,0.1); color: var(--danger); border-radius: 4px; padding: 0 0.25rem; }
+	.check { color: var(--success); font-size: 0.75rem; }
+	.no-suggestions { font-size: 0.8rem; color: var(--text-muted); margin: 0; }
 	.field-row { display: flex; gap: 0.75rem; align-items: flex-start; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 0.75rem; }
 	.field-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; flex: 1; }
 	.field-required { display: flex; align-items: center; }
@@ -356,10 +475,7 @@
 	.file-badge { display: inline-flex; align-items: center; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; border-radius: 4px; padding: 0.15rem 0.5rem; font-size: 0.8rem; }
 	.file-label { cursor: pointer; display: inline-flex; align-items: center; }
 	.file-label.disabled { opacity: 0.6; cursor: not-allowed; }
-	.hint { display: block; margin-top: 0.25rem; font-size: 0.8rem; color: #64748b; }
+	.hint { display: block; margin-top: 0.25rem; font-size: 0.8rem; color: var(--text-muted); }
 	.webhook-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
 	.webhook-url { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.375rem 0.625rem; font-size: 0.8rem; word-break: break-all; flex: 1; }
-	.toggle-tabs { display: flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-	.tab-btn { flex: 1; padding: 0.4rem 0.75rem; background: none; border: none; cursor: pointer; font-size: 0.85rem; color: var(--text-muted); transition: background 0.12s, color 0.12s; }
-	.tab-btn.active { background: var(--primary); color: #fff; }
 </style>

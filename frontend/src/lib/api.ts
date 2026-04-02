@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import { authStore } from './stores';
-import type { AuditLog, AuthResponse, EEFiles, Form, FormField, Host, Playbook, Run, Server, ServerGroup, SSHCert, User, Vault } from './types';
+import type { AuditLog, AuthResponse, EEFiles, Form, FormField, Host, Playbook, Run, Server, ServerGroup, SSHCert, User, Vault, VarSuggestion } from './types';
 
 export class ApiError extends Error {
 	constructor(public status: number, message: string) {
@@ -97,11 +97,14 @@ export const servers = {
 export const playbooks = {
 	list: () => request<Playbook[]>('/playbooks'),
 	get: (id: string) => request<Playbook>(`/playbooks/${id}`),
-	create: (data: { name: string; description: string; repo_url: string; branch: string; playbook_path: string; token?: string }) =>
+	create: (data: { name: string; description: string; repo_url: string; branch: string; token?: string }) =>
 		request<Playbook>('/playbooks', { method: 'POST', body: JSON.stringify(data) }),
-	update: (id: string, data: { name: string; description: string; repo_url: string; branch: string; playbook_path: string; token?: string }) =>
+	update: (id: string, data: { name: string; description: string; repo_url: string; branch: string; token?: string }) =>
 		request<Playbook>(`/playbooks/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 	delete: (id: string) => request<void>(`/playbooks/${id}`, { method: 'DELETE' }),
+	listFiles: (id: string) => request<string[]>(`/playbooks/${id}/files`),
+	scanVars: (id: string, path: string) =>
+		request<VarSuggestion[]>(`/playbooks/${id}/scan?path=${encodeURIComponent(path)}`),
 };
 
 export const forms = {

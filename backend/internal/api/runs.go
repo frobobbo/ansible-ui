@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -396,7 +394,7 @@ func (h *RunsHandler) executeRunWithServer(runID string, form *models.Form, serv
 		return
 	}
 
-	playbookContent, err := fetchPlaybookContent(ctx, playbook)
+	playbookContent, err := fetchPlaybookContent(ctx, playbook, form.PlaybookPath)
 	if err != nil {
 		fail(fmt.Sprintf("fetch playbook: %v", err))
 		return
@@ -538,39 +536,22 @@ func (h *RunsHandler) TriggerWebhook(c *gin.Context) {
 	}
 }
 
-// fetchPlaybookContent clones the playbook source repo at a shallow depth and
-// returns the content of the specified playbook file. The clone is removed after
-// the content is read. If a token is set it is injected into the HTTPS URL so
-// private repos work without requiring a credential helper.
-func fetchPlaybookContent(ctx context.Context, p *models.Playbook) ([]byte, error) {
+// fetchPlaybookContent clones the playbook source repo and returns the content
+// of playbookPath within it. The clone directory is removed after the read.
+func fetchPlaybookContent(ctx context.Context, p *models.Playbook, playbookPath string) ([]byte, error) {
 	dir, err := os.MkdirTemp("", "ansible-clone-*")
 	if err != nil {
 		return nil, fmt.Errorf("tempdir: %w", err)
 	}
 	defer os.RemoveAll(dir)
 
-	cloneURL := p.RepoURL
-	if p.Token != "" {
-		if u, uerr := url.Parse(cloneURL); uerr == nil && (u.Scheme == "https" || u.Scheme == "http") {
-			u.User = url.UserPassword("oauth2", p.Token)
-			cloneURL = u.String()
-		}
+	if err := cloneShallow(ctx, p, dir); err != nil {
+		return nil, err
 	}
 
-	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", "--branch", p.Branch, "--single-branch", cloneURL, dir)
-	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
-	out, cerr := cmd.CombinedOutput()
-	if cerr != nil {
-		msg := string(out)
-		if p.Token != "" {
-			msg = strings.ReplaceAll(msg, p.Token, "***")
-		}
-		return nil, fmt.Errorf("git clone: %w\n%s", cerr, strings.TrimSpace(msg))
-	}
-
-	content, err := os.ReadFile(filepath.Join(dir, p.PlaybookPath))
+	content, err := os.ReadFile(filepath.Join(dir, playbookPath))
 	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", p.PlaybookPath, err)
+		return nil, fmt.Errorf("read %s: %w", playbookPath, err)
 	}
 	return content, nil
 }

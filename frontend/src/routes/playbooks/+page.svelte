@@ -22,7 +22,7 @@
 	);
 
 	const emptyForm = () => ({
-		name: '', description: '', repo_url: '', branch: 'main', playbook_path: 'site.yml', token: ''
+		name: '', description: '', repo_url: '', branch: 'main', token: ''
 	});
 
 	let showModal = $state(false);
@@ -49,14 +49,14 @@
 
 	function openEdit(p: Playbook) {
 		editingId = p.id;
-		form = { name: p.name, description: p.description, repo_url: p.repo_url, branch: p.branch, playbook_path: p.playbook_path, token: '' };
+		form = { name: p.name, description: p.description, repo_url: p.repo_url, branch: p.branch, token: '' };
 		formError = '';
 		showModal = true;
 	}
 
 	async function save() {
-		if (!form.name || !form.repo_url || !form.playbook_path) {
-			formError = 'Name, Repo URL, and Playbook Path are required.';
+		if (!form.name || !form.repo_url) {
+			formError = 'Name and Repo URL are required.';
 			return;
 		}
 		saving = true;
@@ -117,7 +117,6 @@
 					<th>Name</th>
 					<th>Repository</th>
 					<th>Branch</th>
-					<th>Playbook Path</th>
 					{#if $isAdmin}<th>Actions</th>{/if}
 				</tr>
 			</thead>
@@ -132,7 +131,6 @@
 							<span class="repo-url" title={pb.repo_url}>{pb.repo_url}</span>
 						</td>
 						<td><span class="badge badge-info">{pb.branch}</span></td>
-						<td><code class="path">{pb.playbook_path}</code></td>
 						{#if $isAdmin}
 							<td>
 								<div class="actions">
@@ -167,16 +165,10 @@
 					<input class="form-control" bind:value={form.repo_url} required placeholder="https://github.com/org/repo.git" />
 					<span class="hint">HTTPS URL. For private repos, enter a token below.</span>
 				</div>
-				<div class="grid-2">
-					<div class="form-group">
-						<label>Branch <span class="req">*</span></label>
-						<input class="form-control" bind:value={form.branch} required placeholder="main" />
-					</div>
-					<div class="form-group">
-						<label>Playbook Path <span class="req">*</span></label>
-						<input class="form-control" bind:value={form.playbook_path} required placeholder="site.yml" />
-						<span class="hint">Path within the repo, e.g. <code>plays/deploy.yml</code></span>
-					</div>
+				<div class="form-group">
+					<label>Branch <span class="req">*</span></label>
+					<input class="form-control" bind:value={form.branch} required placeholder="main" />
+					<span class="hint">The specific playbook file is chosen per form.</span>
 				</div>
 				<div class="form-group">
 					<label>Access Token</label>

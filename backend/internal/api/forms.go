@@ -190,6 +190,7 @@ type formRequest struct {
 	Name            string             `json:"name" binding:"required"`
 	Description     string             `json:"description"`
 	PlaybookID      string             `json:"playbook_id" binding:"required"`
+	PlaybookPath    string             `json:"playbook_path"`
 	ServerID        string             `json:"server_id"`
 	HostID          string             `json:"host_id"`
 	ServerGroupID   string             `json:"server_group_id"`
@@ -246,7 +247,7 @@ func (h *FormsHandler) Create(c *gin.Context) {
 		vaultID = nil
 	}
 
-	f, err := h.forms.Create(req.Name, req.Description, req.PlaybookID, serverID, hostID, serverGroupID, vaultID, req.IsQuickAction, req.ScheduleCron, req.ScheduleEnabled, req.NotifyWebhook, req.NotifyEmail, req.Fields)
+	f, err := h.forms.Create(req.Name, req.Description, req.PlaybookID, req.PlaybookPath, serverID, hostID, serverGroupID, vaultID, req.IsQuickAction, req.ScheduleCron, req.ScheduleEnabled, req.NotifyWebhook, req.NotifyEmail, req.Fields)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -285,7 +286,7 @@ func (h *FormsHandler) Update(c *gin.Context) {
 		vaultID = nil
 	}
 
-	f, err := h.forms.Update(id, req.Name, req.Description, req.PlaybookID, serverID, hostID, serverGroupID, vaultID, req.IsQuickAction, req.ScheduleCron, req.ScheduleEnabled, req.NotifyWebhook, req.NotifyEmail, req.Fields)
+	f, err := h.forms.Update(id, req.Name, req.Description, req.PlaybookID, req.PlaybookPath, serverID, hostID, serverGroupID, vaultID, req.IsQuickAction, req.ScheduleCron, req.ScheduleEnabled, req.NotifyWebhook, req.NotifyEmail, req.Fields)
 	if err != nil || f == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "form not found"})
 		return

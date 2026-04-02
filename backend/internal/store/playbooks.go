@@ -13,13 +13,13 @@ type PlaybookStore struct {
 	db *sql.DB
 }
 
-const playbookCols = "id, name, description, repo_url, branch, playbook_path, token, created_at"
+const playbookCols = "id, name, description, repo_url, branch, token, created_at"
 
 func scanPlaybook(row interface {
 	Scan(...any) error
 }) (*models.Playbook, error) {
 	p := &models.Playbook{}
-	err := row.Scan(&p.ID, &p.Name, &p.Description, &p.RepoURL, &p.Branch, &p.PlaybookPath, &p.Token, &p.CreatedAt)
+	err := row.Scan(&p.ID, &p.Name, &p.Description, &p.RepoURL, &p.Branch, &p.Token, &p.CreatedAt)
 	return p, err
 }
 
@@ -49,28 +49,27 @@ func (s *PlaybookStore) Get(id string) (*models.Playbook, error) {
 	return p, err
 }
 
-func (s *PlaybookStore) Create(name, description, repoURL, branch, playbookPath, token string) (*models.Playbook, error) {
+func (s *PlaybookStore) Create(name, description, repoURL, branch, token string) (*models.Playbook, error) {
 	p := &models.Playbook{
-		ID:           uuid.New().String(),
-		Name:         name,
-		Description:  description,
-		RepoURL:      repoURL,
-		Branch:       branch,
-		PlaybookPath: playbookPath,
-		Token:        token,
-		CreatedAt:    time.Now(),
+		ID:          uuid.New().String(),
+		Name:        name,
+		Description: description,
+		RepoURL:     repoURL,
+		Branch:      branch,
+		Token:       token,
+		CreatedAt:   time.Now(),
 	}
 	_, err := s.db.Exec(
-		"INSERT INTO playbooks (id, name, description, repo_url, branch, playbook_path, token, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-		p.ID, p.Name, p.Description, p.RepoURL, p.Branch, p.PlaybookPath, p.Token, p.CreatedAt,
+		"INSERT INTO playbooks (id, name, description, repo_url, branch, token, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		p.ID, p.Name, p.Description, p.RepoURL, p.Branch, p.Token, p.CreatedAt,
 	)
 	return p, err
 }
 
-func (s *PlaybookStore) Update(id, name, description, repoURL, branch, playbookPath, token string) (*models.Playbook, error) {
+func (s *PlaybookStore) Update(id, name, description, repoURL, branch, token string) (*models.Playbook, error) {
 	_, err := s.db.Exec(
-		"UPDATE playbooks SET name=?, description=?, repo_url=?, branch=?, playbook_path=?, token=? WHERE id=?",
-		name, description, repoURL, branch, playbookPath, token, id,
+		"UPDATE playbooks SET name=?, description=?, repo_url=?, branch=?, token=? WHERE id=?",
+		name, description, repoURL, branch, token, id,
 	)
 	if err != nil {
 		return nil, err

@@ -99,6 +99,8 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, vaultUploadDir string, for
 			protected.POST("/playbooks", auth.RequireAdmin, playbooksH.Create)
 			protected.PUT("/playbooks/:id", auth.RequireAdmin, playbooksH.Update)
 			protected.DELETE("/playbooks/:id", auth.RequireAdmin, playbooksH.Delete)
+			protected.GET("/playbooks/:id/files", playbooksH.Files)
+			protected.GET("/playbooks/:id/scan", playbooksH.Scan)
 
 			// Forms
 			protected.GET("/forms", formsH.List)

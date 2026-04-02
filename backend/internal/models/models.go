@@ -23,14 +23,13 @@ type Server struct {
 }
 
 type Playbook struct {
-	ID           string    `json:"id"`
-	Name         string    `json:"name"`
-	Description  string    `json:"description"`
-	RepoURL      string    `json:"repo_url"`
-	Branch       string    `json:"branch"`
-	PlaybookPath string    `json:"playbook_path"`
-	Token        string    `json:"token,omitempty"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	RepoURL     string    `json:"repo_url"`
+	Branch      string    `json:"branch"`
+	Token       string    `json:"token,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type FormField struct {
@@ -85,6 +84,7 @@ type Form struct {
 	Name            string      `json:"name" db:"name"`
 	Description     string      `json:"description" db:"description"`
 	PlaybookID      string      `json:"playbook_id" db:"playbook_id"`
+	PlaybookPath    string      `json:"playbook_path" db:"playbook_path"`
 	ServerID        *string     `json:"server_id" db:"server_id"`
 	HostID          *string     `json:"host_id" db:"host_id"`
 	ServerGroupID   *string     `json:"server_group_id" db:"server_group_id"`

@@ -27,9 +27,16 @@ export interface Playbook {
 	description: string;
 	repo_url: string;
 	branch: string;
-	playbook_path: string;
 	token?: string;
 	created_at: string;
+}
+
+export interface VarSuggestion {
+	name: string;
+	label: string;
+	type: 'text' | 'number' | 'bool';
+	default: string;
+	required: boolean;
 }
 
 export interface FormField {
@@ -82,6 +89,7 @@ export interface Form {
 	name: string;
 	description: string;
 	playbook_id: string;
+	playbook_path: string;
 	server_id?: string | null;
 	host_id?: string | null;
 	server_group_id?: string | null;

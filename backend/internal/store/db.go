@@ -97,27 +97,30 @@ func New(dsn string) (*DB, error) {
 	db.Exec("ALTER TABLE servers ADD COLUMN execution_environment TEXT NOT NULL DEFAULT ''")
 	db.Exec("ALTER TABLE hosts ADD COLUMN ssh_cert_id TEXT REFERENCES ssh_certs(id) ON DELETE SET NULL")
 
-	// Migrate playbooks: if the old file_path column exists, drop and recreate with the
-	// git-repo schema (repo_url, branch, playbook_path, token). Existing file-based
-	// playbook records are incompatible; orphaned forms are cleaned up below.
-	var playbookOldCol int
-	db.QueryRow("SELECT COUNT(*) FROM pragma_table_info('playbooks') WHERE name='file_path'").Scan(&playbookOldCol)
-	if playbookOldCol > 0 {
+	// Migrate playbooks: if the old file_path column exists (pre-git schema), drop and
+	// recreate. If the transitional playbook_path column exists, drop and recreate without
+	// it (playbook_path moved to forms). Existing records are incompatible either way;
+	// orphaned forms are cleaned up below.
+	var pbFilePathCol, pbPlaybookPathCol int
+	db.QueryRow("SELECT COUNT(*) FROM pragma_table_info('playbooks') WHERE name='file_path'").Scan(&pbFilePathCol)
+	db.QueryRow("SELECT COUNT(*) FROM pragma_table_info('playbooks') WHERE name='playbook_path'").Scan(&pbPlaybookPathCol)
+	if pbFilePathCol > 0 || pbPlaybookPathCol > 0 {
 		db.Exec("PRAGMA foreign_keys = OFF")
 		db.Exec("DROP TABLE playbooks")
 		db.Exec(`CREATE TABLE playbooks (
-			id            TEXT PRIMARY KEY,
-			name          TEXT NOT NULL,
-			description   TEXT NOT NULL DEFAULT '',
-			repo_url      TEXT NOT NULL DEFAULT '',
-			branch        TEXT NOT NULL DEFAULT 'main',
-			playbook_path TEXT NOT NULL DEFAULT 'site.yml',
-			token         TEXT NOT NULL DEFAULT '',
-			created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+			id          TEXT PRIMARY KEY,
+			name        TEXT NOT NULL,
+			description TEXT NOT NULL DEFAULT '',
+			repo_url    TEXT NOT NULL DEFAULT '',
+			branch      TEXT NOT NULL DEFAULT 'main',
+			token       TEXT NOT NULL DEFAULT '',
+			created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)`)
 		db.Exec("DELETE FROM forms WHERE playbook_id NOT IN (SELECT id FROM playbooks)")
 		db.Exec("PRAGMA foreign_keys = ON")
 	}
+	// Add playbook_path to forms (the specific .yml file within the source repo).
+	db.Exec("ALTER TABLE forms ADD COLUMN playbook_path TEXT NOT NULL DEFAULT ''")
 	db.Exec(`CREATE TABLE IF NOT EXISTS hosts (
 		id          TEXT PRIMARY KEY,
 		name        TEXT NOT NULL,

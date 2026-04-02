@@ -18,14 +18,13 @@ CREATE TABLE IF NOT EXISTS servers (
 );
 
 CREATE TABLE IF NOT EXISTS playbooks (
-    id            TEXT PRIMARY KEY,
-    name          TEXT NOT NULL,
-    description   TEXT NOT NULL DEFAULT '',
-    repo_url      TEXT NOT NULL DEFAULT '',
-    branch        TEXT NOT NULL DEFAULT 'main',
-    playbook_path TEXT NOT NULL DEFAULT 'site.yml',
-    token         TEXT NOT NULL DEFAULT '',
-    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    repo_url    TEXT NOT NULL DEFAULT '',
+    branch      TEXT NOT NULL DEFAULT 'main',
+    token       TEXT NOT NULL DEFAULT '',
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS vaults (
@@ -58,6 +57,7 @@ CREATE TABLE IF NOT EXISTS forms (
     name             TEXT NOT NULL,
     description      TEXT NOT NULL DEFAULT '',
     playbook_id      TEXT NOT NULL REFERENCES playbooks(id) ON DELETE CASCADE,
+    playbook_path    TEXT NOT NULL DEFAULT '',
     server_id        TEXT REFERENCES servers(id) ON DELETE CASCADE,
     server_group_id  TEXT REFERENCES server_groups(id) ON DELETE SET NULL,
     vault_id         TEXT REFERENCES vaults(id) ON DELETE SET NULL,
