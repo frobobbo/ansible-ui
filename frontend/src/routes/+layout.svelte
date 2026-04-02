@@ -70,7 +70,7 @@
 
 		<nav class="sidebar" class:open={sidebarOpen} aria-label="Main navigation">
 			<div class="logo">
-				<img src="/logo.png" alt="Automation Hub" class="sidebar-logo" />
+				<img src="/logo-dark.png" alt="Automation Hub" class="sidebar-logo" />
 			</div>
 
 			<div class="nav-items">
@@ -307,13 +307,12 @@
 	}
 
 	.logo {
-		padding: 1rem 1.25rem;
-		border-bottom: 1px solid rgba(255,255,255,0.07);
-		margin-bottom: 0.5rem;
+		padding: 0.5rem 0.75rem 0;
+		margin-bottom: 0.25rem;
 		display: flex; align-items: center; justify-content: center;
 	}
 	.sidebar-logo {
-		width: 190px;
+		width: 210px;
 		height: auto;
 		display: block;
 	}
