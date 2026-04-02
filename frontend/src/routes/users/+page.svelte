@@ -9,7 +9,7 @@
 	let loading = $state(true);
 	let showModal = $state(false);
 	let editingId = $state<string | null>(null);
-	let form = $state({ username: '', password: '', role: 'viewer' as string });
+	let form = $state({ username: '', email: '', password: '', role: 'viewer' as string });
 	let saving = $state(false);
 	let formError = $state('');
 
@@ -23,14 +23,14 @@
 
 	function openCreate() {
 		editingId = null;
-		form = { username: '', password: '', role: 'viewer' };
+		form = { username: '', email: '', password: '', role: 'viewer' };
 		formError = '';
 		showModal = true;
 	}
 
 	function openEdit(u: User) {
 		editingId = u.id;
-		form = { username: u.username, password: '', role: u.role };
+		form = { username: u.username, email: u.email ?? '', password: '', role: u.role };
 		formError = '';
 		showModal = true;
 	}
@@ -40,10 +40,10 @@
 		formError = '';
 		try {
 			if (editingId) {
-				await usersApi.update(editingId, form);
+				await usersApi.update(editingId, { username: form.username, email: form.email, password: form.password || undefined, role: form.role });
 				toast.success('User updated');
 			} else {
-				await usersApi.create({ username: form.username, password: form.password, role: form.role });
+				await usersApi.create({ username: form.username, email: form.email, password: form.password, role: form.role });
 				toast.success('User created');
 			}
 			showModal = false;
@@ -81,11 +81,12 @@
 {:else}
 	<div class="card" style="padding:0">
 		<table class="table">
-			<thead><tr><th>Username</th><th>Role</th><th>Created</th><th>Actions</th></tr></thead>
+			<thead><tr><th>Username</th><th>Email</th><th>Role</th><th>Created</th><th>Actions</th></tr></thead>
 			<tbody>
 				{#each list as u}
 					<tr>
 						<td><strong>{u.username}</strong>{#if u.id === $currentUser?.id} <span class="badge badge-info">You</span>{/if}</td>
+						<td>{#if u.email}{u.email}{:else}<span class="text-muted">—</span>{/if}</td>
 						<td><span class="badge {u.role === 'admin' ? 'badge-warning' : u.role === 'editor' ? 'badge-info' : 'badge-muted'}">{u.role}</span></td>
 						<td>{new Date(u.created_at).toLocaleDateString()}</td>
 						<td>
@@ -110,6 +111,10 @@
 				<div class="form-group">
 					<label>Username</label>
 					<input class="form-control" bind:value={form.username} required />
+				</div>
+				<div class="form-group">
+					<label>Email <span style="font-weight:400;color:var(--text-muted)">(optional — required for password reset)</span></label>
+					<input class="form-control" type="email" bind:value={form.email} />
 				</div>
 				<div class="form-group">
 					<label>Password{editingId ? ' — leave blank to keep existing' : ''}</label>

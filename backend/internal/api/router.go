@@ -44,6 +44,7 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, vaultUploadDir string, for
 	authH := newAuthHandler(db.Users(), jwtSvc)
 	auditH := newAuditHandler(auditStore)
 	usersH := newUsersHandler(db.Users(), auditStore)
+	settingsH := newSettingsHandler(db.Settings(), db.Users())
 	serversH := newServersHandler(db.Servers(), auditStore)
 	serverGroupsH := newServerGroupsHandler(db.ServerGroups(), auditStore)
 	playbooksH := newPlaybooksHandler(db.Playbooks(), auditStore)
@@ -60,6 +61,8 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, vaultUploadDir string, for
 	{
 		api.POST("/auth/login", authH.Login)
 		api.POST("/auth/logout", authH.Logout)
+		api.POST("/auth/forgot-password", authH.ForgotPassword)
+		api.POST("/auth/reset-password", authH.ResetPassword)
 
 		// Swagger UI + raw spec (no auth)
 		RegisterDocsRoutes(api)
@@ -149,6 +152,11 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, vaultUploadDir string, for
 			protected.GET("/runs/:id", runsH.Get)
 			protected.POST("/runs", runsH.Create)
 			protected.POST("/runs/:id/cancel", runsH.Cancel)
+
+			// Settings (admin only)
+			protected.GET("/settings/email", auth.RequireAdmin, settingsH.GetEmail)
+			protected.PUT("/settings/email", auth.RequireAdmin, settingsH.UpdateEmail)
+			protected.POST("/settings/email/test", auth.RequireAdmin, settingsH.TestEmail)
 
 			// Audit log (admin only)
 			protected.GET("/audit", auth.RequireAdmin, auditH.List)

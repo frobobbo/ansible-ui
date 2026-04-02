@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import { authStore } from './stores';
-import type { AuditLog, AuthResponse, EEFiles, Form, FormField, Host, Playbook, Run, Server, ServerGroup, SSHCert, User, Vault, VarSuggestion } from './types';
+import type { AuditLog, AuthResponse, EEFiles, EmailSettings, Form, FormField, Host, Playbook, Run, Server, ServerGroup, SSHCert, User, Vault, VarSuggestion } from './types';
 
 export class ApiError extends Error {
 	constructor(public status: number, message: string) {
@@ -71,13 +71,17 @@ export const auth = {
 	login: (username: string, password: string) =>
 		request<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
 	logout: () => request('/auth/logout', { method: 'POST' }),
+	forgotPassword: (username: string) =>
+		request<{ message: string }>('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ username }) }),
+	resetPassword: (token: string, password: string) =>
+		request<{ message: string }>('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) }),
 };
 
 export const users = {
 	list: () => request<User[]>('/users'),
-	create: (data: { username: string; password: string; role: string }) =>
+	create: (data: { username: string; password: string; role: string; email?: string }) =>
 		request<User>('/users', { method: 'POST', body: JSON.stringify(data) }),
-	update: (id: string, data: { username: string; password?: string; role: string }) =>
+	update: (id: string, data: { username: string; password?: string; role: string; email?: string }) =>
 		request<User>(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 	delete: (id: string) => request<void>(`/users/${id}`, { method: 'DELETE' }),
 };
@@ -185,6 +189,17 @@ export const sshCerts = {
 		return request<SSHCert>(`/ssh-certs/${id}/upload`, { method: 'POST', body: fd });
 	},
 	deleteFile: (id: string) => request<SSHCert>(`/ssh-certs/${id}/file`, { method: 'DELETE' }),
+};
+
+export const settings = {
+	getEmail: () => request<EmailSettings>('/settings/email'),
+	updateEmail: (data: EmailSettings) =>
+		request<EmailSettings>('/settings/email', { method: 'PUT', body: JSON.stringify(data) }),
+	testEmail: (to: string, config?: Partial<EmailSettings>) =>
+		request<{ message: string }>('/settings/email/test', {
+			method: 'POST',
+			body: JSON.stringify({ to, config }),
+		}),
 };
 
 export const ee = {

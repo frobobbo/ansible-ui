@@ -6,6 +6,7 @@ import (
 
 	"github.com/brettjrea/ansible-frontend/internal/api"
 	"github.com/brettjrea/ansible-frontend/internal/auth"
+	"github.com/brettjrea/ansible-frontend/internal/notify"
 	"github.com/brettjrea/ansible-frontend/internal/scheduler"
 	"github.com/brettjrea/ansible-frontend/internal/store"
 )
@@ -28,6 +29,13 @@ func main() {
 	// Seed default admin if no users exist
 	if err := db.EnsureDefaultAdmin(); err != nil {
 		log.Fatal("ensure default admin:", err)
+	}
+
+	// Load email config: DB settings take precedence, env vars as fallback
+	if emailSettings, err := db.Settings().GetAll(); err == nil {
+		notify.SetConfig(notify.ConfigFromSettings(emailSettings))
+	} else {
+		notify.SetConfig(notify.ConfigFromEnv())
 	}
 
 	// JWT

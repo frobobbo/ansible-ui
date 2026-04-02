@@ -46,6 +46,7 @@
 					{loading ? 'Signing in…' : 'Sign In'}
 				</button>
 			</form>
+			<p class="forgot-link"><a href="/forgot-password">Forgot password?</a></p>
 		</div>
 	</div>
 </div>
@@ -77,4 +78,7 @@
 		display: block;
 	}
 	.login-body { padding: 1.75rem 2rem 2rem; }
+	.forgot-link { margin-top: 0.75rem; text-align: center; font-size: 0.85rem; }
+	.forgot-link a { color: var(--primary); text-decoration: none; }
+	.forgot-link a:hover { text-decoration: underline; }
 </style>

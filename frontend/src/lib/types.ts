@@ -5,6 +5,7 @@ export type RunStatus = 'pending' | 'running' | 'success' | 'failed';
 export interface User {
 	id: string;
 	username: string;
+	email: string;
 	role: Role;
 	created_at: string;
 }
@@ -130,6 +131,19 @@ export interface AuditLog {
 	details: string;
 	ip: string;
 	created_at: string;
+}
+
+export interface EmailSettings {
+	email_provider: string; // "smtp" | "mailgun" | ""
+	smtp_host: string;
+	smtp_port: string;
+	smtp_username: string;
+	smtp_password: string;
+	smtp_from: string;
+	mailgun_api_key: string;
+	mailgun_domain: string;
+	mailgun_from: string;
+	mailgun_region: string; // "us" | "eu"
 }
 
 export interface AuthResponse {

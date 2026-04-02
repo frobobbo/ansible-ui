@@ -34,6 +34,7 @@ func (h *UsersHandler) Create(c *gin.Context) {
 	var req struct {
 		Username string `json:"username" binding:"required"`
 		Password string `json:"password" binding:"required"`
+		Email    string `json:"email"`
 		Role     string `json:"role" binding:"required,oneof=admin editor viewer"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -47,7 +48,7 @@ func (h *UsersHandler) Create(c *gin.Context) {
 		return
 	}
 
-	user, err := h.users.Create(req.Username, string(hash), req.Role)
+	user, err := h.users.Create(req.Username, string(hash), req.Role, req.Email)
 	if err != nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "username already exists"})
 		return
@@ -62,6 +63,7 @@ func (h *UsersHandler) Update(c *gin.Context) {
 	var req struct {
 		Username string `json:"username" binding:"required"`
 		Password string `json:"password"`
+		Email    string `json:"email"`
 		Role     string `json:"role" binding:"required,oneof=admin editor viewer"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -79,7 +81,7 @@ func (h *UsersHandler) Update(c *gin.Context) {
 		hash = string(h)
 	}
 
-	user, err := h.users.Update(id, req.Username, hash, req.Role)
+	user, err := h.users.Update(id, req.Username, hash, req.Role, req.Email)
 	if err != nil || user == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return

@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/brettjrea/ansible-frontend/internal/models"
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
 	"golang.org/x/crypto/bcrypt"
@@ -138,22 +137,35 @@ func New(dsn string) (*DB, error) {
 		created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	)`)
 
-	// Migrate users table to add 'editor' role — SQLite CHECK constraints require
-	// a full table rebuild; check sqlite_master to avoid re-running on every start.
+	// Migrate users table: add 'editor' role and email column.
 	var userSchema string
 	db.QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'").Scan(&userSchema)
-	if !strings.Contains(userSchema, "'editor'") {
+	if !strings.Contains(userSchema, "'editor'") || !strings.Contains(userSchema, "email") {
 		db.Exec(`ALTER TABLE users RENAME TO _users_old`)
 		db.Exec(`CREATE TABLE users (
 			id            TEXT PRIMARY KEY,
 			username      TEXT NOT NULL UNIQUE,
 			password_hash TEXT NOT NULL,
+			email         TEXT NOT NULL DEFAULT '',
 			role          TEXT NOT NULL CHECK(role IN ('admin','editor','viewer')) DEFAULT 'viewer',
 			created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)`)
-		db.Exec(`INSERT INTO users SELECT * FROM _users_old`)
+		db.Exec(`INSERT INTO users (id, username, password_hash, role, created_at) SELECT id, username, password_hash, role, created_at FROM _users_old`)
 		db.Exec(`DROP TABLE _users_old`)
 	}
+
+	// Password reset tokens (created lazily here so older installs get the table).
+	db.Exec(`CREATE TABLE IF NOT EXISTS password_reset_tokens (
+		id         TEXT PRIMARY KEY,
+		user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		token_hash TEXT NOT NULL UNIQUE,
+		expires_at DATETIME NOT NULL,
+		used_at    DATETIME,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	)`)
+
+	// Settings key-value store (created lazily for older installs).
+	db.Exec(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '')`)
 
 	return &DB{conn: db}, nil
 }
@@ -179,7 +191,7 @@ func (db *DB) EnsureDefaultAdmin() error {
 	}
 
 	_, err = db.conn.Exec(
-		"INSERT INTO users (id, username, password_hash, role, created_at) VALUES (?, ?, ?, 'admin', ?)",
+		"INSERT INTO users (id, username, password_hash, email, role, created_at) VALUES (?, ?, ?, '', 'admin', ?)",
 		uuid.New().String(), "admin", string(hash), time.Now(),
 	)
 	return err
@@ -195,17 +207,9 @@ func (db *DB) ServerGroups() *ServerGroupStore { return &ServerGroupStore{db: db
 func (db *DB) Vaults(secret string) *VaultStore {
 	return newVaultStore(db.conn, secret)
 }
-func (db *DB) Hosts() *HostStore                  { return &HostStore{db: db.conn} }
+func (db *DB) Settings() *SettingsStore            { return &SettingsStore{db: db.conn} }
+func (db *DB) Hosts() *HostStore                   { return &HostStore{db: db.conn} }
 func (db *DB) SSHCerts(secret string) *SSHCertStore {
 	return newSSHCertStore(db.conn, secret)
 }
 
-// scanUser scans a user row (without password_hash by default)
-func scanUser(row *sql.Row) (*models.User, error) {
-	u := &models.User{}
-	err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role, &u.CreatedAt)
-	if err != nil {
-		return nil, err
-	}
-	return u, nil
-}
