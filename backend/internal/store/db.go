@@ -138,9 +138,14 @@ func New(dsn string) (*DB, error) {
 	)`)
 
 	// Migrate users table: add 'editor' role and email column.
+	// PRAGMA legacy_alter_table = ON prevents SQLite from rewriting FK references
+	// in other tables (e.g. password_reset_tokens) when renaming users → _users_old,
+	// which would leave those tables pointing at the deleted backup table.
 	var userSchema string
 	db.QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'").Scan(&userSchema)
 	if !strings.Contains(userSchema, "'editor'") || !strings.Contains(userSchema, "email") {
+		db.Exec("PRAGMA legacy_alter_table = ON")
+		db.Exec("PRAGMA foreign_keys = OFF")
 		db.Exec(`ALTER TABLE users RENAME TO _users_old`)
 		db.Exec(`CREATE TABLE users (
 			id            TEXT PRIMARY KEY,
@@ -152,6 +157,19 @@ func New(dsn string) (*DB, error) {
 		)`)
 		db.Exec(`INSERT INTO users (id, username, password_hash, role, created_at) SELECT id, username, password_hash, role, created_at FROM _users_old`)
 		db.Exec(`DROP TABLE _users_old`)
+		db.Exec("PRAGMA foreign_keys = ON")
+		db.Exec("PRAGMA legacy_alter_table = OFF")
+		// Drop password_reset_tokens so it is recreated below with a valid FK.
+		// It has no meaningful data at this stage (tokens are short-lived).
+		db.Exec(`DROP TABLE IF EXISTS password_reset_tokens`)
+	}
+
+	// Recovery: if a previous deployment left password_reset_tokens with a broken
+	// FK pointing at the (now deleted) _users_old table, drop it so it is recreated.
+	var prtSQL string
+	db.QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND name='password_reset_tokens'").Scan(&prtSQL)
+	if strings.Contains(prtSQL, "_users_old") {
+		db.Exec(`DROP TABLE password_reset_tokens`)
 	}
 
 	// Password reset tokens (created lazily here so older installs get the table).
