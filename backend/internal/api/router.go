@@ -19,9 +19,13 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, vaultUploadDir string, for
 	r.RedirectTrailingSlash = false
 	r.RedirectFixedPath = false
 
-	// CORS middleware
+	// CORS middleware — lock to CORS_ORIGIN env var if set, otherwise wildcard.
+	corsOrigin := os.Getenv("CORS_ORIGIN")
+	if corsOrigin == "" {
+		corsOrigin = "*"
+	}
 	r.Use(func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Origin", corsOrigin)
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
 		// Suppress HTTP/3 (QUIC) upgrades — QUIC requires UDP 443 which is

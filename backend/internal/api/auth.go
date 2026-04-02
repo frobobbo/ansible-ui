@@ -2,12 +2,45 @@ package api
 
 import (
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/brettjrea/ansible-frontend/internal/auth"
 	"github.com/brettjrea/ansible-frontend/internal/store"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// loginLimiter allows at most 10 login attempts per IP per minute.
+var loginLimiter = &rateLimiter{max: 10, window: time.Minute, entries: map[string]*rlEntry{}}
+
+type rateLimiter struct {
+	mu      sync.Mutex
+	entries map[string]*rlEntry
+	window  time.Duration
+	max     int
+}
+
+type rlEntry struct {
+	count     int
+	windowEnd time.Time
+}
+
+func (rl *rateLimiter) allow(ip string) bool {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	now := time.Now()
+	e, ok := rl.entries[ip]
+	if !ok || now.After(e.windowEnd) {
+		rl.entries[ip] = &rlEntry{count: 1, windowEnd: now.Add(rl.window)}
+		return true
+	}
+	if e.count >= rl.max {
+		return false
+	}
+	e.count++
+	return true
+}
 
 type AuthHandler struct {
 	users  *store.UserStore
@@ -19,6 +52,10 @@ func newAuthHandler(users *store.UserStore, jwtSvc *auth.JWTService) *AuthHandle
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
+	if !loginLimiter.allow(c.ClientIP()) {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "too many login attempts, try again later"})
+		return
+	}
 	var req struct {
 		Username string `json:"username" binding:"required"`
 		Password string `json:"password" binding:"required"`

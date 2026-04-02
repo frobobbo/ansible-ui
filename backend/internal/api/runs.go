@@ -565,7 +565,7 @@ func buildInventory(name, address string, vars map[string]string) string {
 		entry += " ansible_host=" + address
 	}
 	for k, v := range vars {
-		entry += " " + k + "=" + v
+		entry += " " + k + `="` + strings.ReplaceAll(v, `"`, `\"`) + `"`
 	}
 	return "[all]\n" + entry + "\n"
 }
