@@ -60,7 +60,7 @@
 				<span></span>
 				<span></span>
 			</button>
-			<span class="topbar-brand">Automation Hub</span>
+			<span class="topbar-brand"><span class="topbar-logo-icon" aria-hidden="true"></span>Automation Hub</span>
 		</header>
 
 		<!-- Backdrop (mobile) -->
@@ -70,12 +70,7 @@
 
 		<nav class="sidebar" class:open={sidebarOpen} aria-label="Main navigation">
 			<div class="logo">
-				<svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-					<circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/>
-					<line x1="12" y1="6" x2="12" y2="18" stroke-width="2.5" stroke-linecap="round"/>
-					<line x1="6" y1="12" x2="18" y2="12" stroke-width="2.5" stroke-linecap="round"/>
-				</svg>
-				Automation Hub
+				<img src="/logo.png" alt="Automation Hub" class="sidebar-logo" />
 			</div>
 
 			<div class="nav-items">
@@ -261,7 +256,20 @@
 		gap: 0.75rem;
 		border-bottom: 1px solid rgba(255,255,255,0.07);
 	}
-	.topbar-brand { color: white; font-weight: 700; font-size: 1rem; letter-spacing: -0.01em; }
+	.topbar-brand {
+		color: white; font-weight: 700; font-size: 1rem; letter-spacing: -0.01em;
+		display: flex; align-items: center; gap: 0.5rem;
+	}
+	/* Toolbar icon: crops just the circular emblem from the right side of logo.png.
+	   Image is 1301×392. The icon occupies roughly the rightmost 370px (28%).
+	   Scaled to 32px tall: full image → 109×32.8px; offset -72px left to show the icon. */
+	.topbar-logo-icon {
+		display: inline-block; width: 32px; height: 32px; flex-shrink: 0;
+		background: url('/logo.png') no-repeat;
+		background-size: auto 32px;
+		background-position: right center;
+		border-radius: 50%;
+	}
 
 	/* Hamburger */
 	.hamburger {
@@ -299,14 +307,16 @@
 	}
 
 	.logo {
-		display: flex; align-items: center; gap: 0.625rem;
-		font-size: 1rem; font-weight: 700; color: white;
-		padding: 1.25rem 1.25rem 1rem;
+		padding: 1rem 1.25rem;
 		border-bottom: 1px solid rgba(255,255,255,0.07);
 		margin-bottom: 0.5rem;
-		letter-spacing: -0.01em;
+		display: flex; align-items: center; justify-content: center;
 	}
-	.logo-icon { width: 20px; height: 20px; color: var(--primary); flex-shrink: 0; }
+	.sidebar-logo {
+		width: 190px;
+		height: auto;
+		display: block;
+	}
 
 	.nav-items { flex: 1; padding: 0.25rem 0; }
 

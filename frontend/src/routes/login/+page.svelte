@@ -27,11 +27,7 @@
 <div class="login-page">
 	<div class="login-card">
 		<div class="login-brand">
-			<svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-				<polygon points="5,3 19,12 5,21"/>
-			</svg>
-			<h1>Automation Hub</h1>
-			<p class="subtitle">Sign in to continue</p>
+			<img src="/logo.png" alt="Automation Hub" class="brand-logo" />
 		</div>
 		<div class="login-body">
 			{#if error}
@@ -64,18 +60,21 @@
 	.login-card {
 		background: white;
 		border-radius: 12px;
-		width: 100%; max-width: 380px;
+		width: 100%; max-width: 400px;
 		box-shadow: 0 24px 64px rgba(0,0,0,0.4);
 		overflow: hidden;
 	}
 	.login-brand {
-		background: linear-gradient(135deg, #5636d1 0%, #e2498a 100%);
-		padding: 2rem 2.5rem 1.75rem;
-		text-align: center;
-		display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+		background: #f0f7ff;
+		border-bottom: 1px solid #d6eaf8;
+		padding: 1.75rem 2rem;
+		display: flex; align-items: center; justify-content: center;
 	}
-	.brand-icon { width: 36px; height: 36px; color: rgba(255,255,255,0.9); }
-	h1 { font-size: 1.75rem; font-weight: 700; color: white; margin: 0; }
-	.subtitle { color: rgba(255,255,255,0.75); font-size: 0.875rem; margin: 0; }
+	.brand-logo {
+		width: 100%;
+		max-width: 300px;
+		height: auto;
+		display: block;
+	}
 	.login-body { padding: 1.75rem 2rem 2rem; }
 </style>
