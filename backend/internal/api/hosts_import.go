@@ -23,6 +23,14 @@ type importResult struct {
 	Errors  []string `json:"errors"`
 }
 
+// varsToSkip are inventory connection vars that are either redundant in our
+// app (ansible_connection is always ssh) or reference paths on the local
+// control machine that won't be valid on the runner (ssh key file paths).
+var varsToSkip = map[string]bool{
+	"ansible_connection":          true,
+	"ansible_ssh_private_key_file": true,
+}
+
 // Import parses an uploaded Ansible INI inventory file and bulk-creates hosts.
 func (h *HostsHandler) Import(c *gin.Context) {
 	f, _, err := c.Request.FormFile("file")
@@ -71,21 +79,41 @@ func (h *HostsHandler) Import(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-// parseAnsibleINI parses an Ansible INI inventory file and returns the
-// discovered hosts. Groups are ignored (hosts from all groups are merged).
-// ansible_host is used as the Address and stripped from Vars.
+// parseAnsibleINI parses an Ansible INI inventory file.
+//
+// Name resolution:
+//   - If a group has exactly one host and that host has no explicit alias
+//     (the line is a bare IP/hostname), the group name is used as the host name.
+//   - Otherwise the alias or bare address is used as-is.
+//
+// Vars:
+//   - [group:vars] entries are merged into every host in that group.
+//   - Inline host vars (key=value on the host line) take precedence.
+//   - varsToSkip entries (e.g. ansible_connection, ssh key file paths) are dropped.
 func parseAnsibleINI(content []byte) []importedHost {
-	var hosts []importedHost
-	seen := map[string]bool{}
+	type groupData struct {
+		hostIndices []int
+		vars        map[string]string
+	}
 
-	// inHostSection is false for :vars and :children sections.
-	inHostSection := true
+	type rawHost struct {
+		name        string // alias or bare address
+		address     string
+		hasAlias    bool // true when name != address
+		inlineVars  map[string]string
+		groupName   string
+	}
+
+	var rawHosts []rawHost
+	seenNames := map[string]bool{}
+	groups := map[string]*groupData{}
+
+	currentGroup := ""
+	currentSection := "" // "hosts" | "vars" | "children"
 
 	scanner := bufio.NewScanner(bytes.NewReader(content))
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-
-		// Skip blank lines and comments.
 		if line == "" || line[0] == '#' || line[0] == ';' {
 			continue
 		}
@@ -98,56 +126,120 @@ func parseAnsibleINI(content []byte) []importedHost {
 			}
 			section := line[1:end]
 			lower := strings.ToLower(section)
-			inHostSection = !strings.HasSuffix(lower, ":vars") &&
-				!strings.HasSuffix(lower, ":children")
+			switch {
+			case strings.HasSuffix(lower, ":vars"):
+				currentGroup = section[:len(section)-5]
+				currentSection = "vars"
+				if _, ok := groups[currentGroup]; !ok {
+					groups[currentGroup] = &groupData{vars: map[string]string{}}
+				}
+			case strings.HasSuffix(lower, ":children"):
+				currentGroup = ""
+				currentSection = "children"
+			default:
+				currentGroup = section
+				currentSection = "hosts"
+				if _, ok := groups[currentGroup]; !ok {
+					groups[currentGroup] = &groupData{vars: map[string]string{}}
+				}
+			}
 			continue
 		}
 
-		if !inHostSection {
-			continue
-		}
-
-		// Host line: first token is the alias/hostname.
-		tokens := tokenizeHostLine(line)
-		if len(tokens) == 0 {
-			continue
-		}
-		name := tokens[0]
-		if seen[name] {
-			continue
-		}
-
-		vars := make(map[string]string)
-		for _, tok := range tokens[1:] {
-			idx := strings.IndexByte(tok, '=')
+		// Group vars line.
+		if currentSection == "vars" {
+			idx := strings.IndexByte(line, '=')
 			if idx < 0 {
 				continue
 			}
-			k := tok[:idx]
-			v := unquote(tok[idx+1:])
-			vars[k] = v
+			k := strings.TrimSpace(line[:idx])
+			v := unquote(strings.TrimSpace(line[idx+1:]))
+			if !varsToSkip[k] {
+				groups[currentGroup].vars[k] = v
+			}
+			continue
 		}
 
-		address := name
-		if ah, ok := vars["ansible_host"]; ok {
-			address = ah
-			delete(vars, "ansible_host")
+		// Host line.
+		if currentSection == "hosts" {
+			tokens := tokenizeHostLine(line)
+			if len(tokens) == 0 {
+				continue
+			}
+
+			inlineVars := make(map[string]string)
+			for _, tok := range tokens[1:] {
+				idx := strings.IndexByte(tok, '=')
+				if idx < 0 {
+					continue
+				}
+				k := tok[:idx]
+				v := unquote(tok[idx+1:])
+				if !varsToSkip[k] {
+					inlineVars[k] = v
+				}
+			}
+
+			address := tokens[0]
+			hasAlias := false
+			if ah, ok := inlineVars["ansible_host"]; ok {
+				address = ah
+				hasAlias = true
+				delete(inlineVars, "ansible_host")
+			}
+
+			name := tokens[0]
+			if seenNames[name] {
+				continue
+			}
+			seenNames[name] = true
+
+			idx := len(rawHosts)
+			rawHosts = append(rawHosts, rawHost{
+				name:       name,
+				address:    address,
+				hasAlias:   hasAlias,
+				inlineVars: inlineVars,
+				groupName:  currentGroup,
+			})
+			g := groups[currentGroup]
+			g.hostIndices = append(g.hostIndices, idx)
 		}
-		if address == "" {
-			address = name
+	}
+
+	// Build final host list: apply group name and merge group vars.
+	hosts := make([]importedHost, 0, len(rawHosts))
+	for i := range rawHosts {
+		rh := &rawHosts[i]
+		g := groups[rh.groupName]
+
+		// Use the group name as the host name when the group has a single host
+		// and the host has no explicit alias (bare IP or FQDN was the only token).
+		finalName := rh.name
+		if !rh.hasAlias && len(g.hostIndices) == 1 && rh.groupName != "" {
+			finalName = rh.groupName
 		}
 
-		hosts = append(hosts, importedHost{Name: name, Address: address, Vars: vars})
-		seen[name] = true
+		// Merge vars: inline takes precedence over group vars.
+		merged := make(map[string]string, len(g.vars)+len(rh.inlineVars))
+		for k, v := range g.vars {
+			merged[k] = v
+		}
+		for k, v := range rh.inlineVars {
+			merged[k] = v
+		}
+
+		hosts = append(hosts, importedHost{
+			Name:    finalName,
+			Address: rh.address,
+			Vars:    merged,
+		})
 	}
 
 	return hosts
 }
 
-// tokenizeHostLine splits a host line respecting quoted values.
-// e.g. `web1 ansible_host=10.0.0.1 ansible_user="ubuntu user"` →
-//
-//	["web1", "ansible_host=10.0.0.1", `ansible_user="ubuntu user"`]
+// tokenizeHostLine splits a host line respecting single- and double-quoted values.
 func tokenizeHostLine(line string) []string {
 	var tokens []string
 	var cur strings.Builder
