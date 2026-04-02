@@ -309,14 +309,14 @@
 				<div class="form-group">
 					<label>Inventory File</label>
 					<label class="file-drop" class:has-file={!!importFile}>
-						<input type="file" accept=".ini,.cfg,.txt,text/plain" style="display:none"
+						<input type="file" style="display:none"
 							onchange={(e) => { importFile = (e.currentTarget as HTMLInputElement).files?.[0] ?? null; }} />
 						{#if importFile}
 							<span class="file-name">📄 {importFile.name}</span>
 							<span class="file-change">Click to change</span>
 						{:else}
 							<span class="file-prompt">Click to select an inventory file</span>
-							<span class="file-sub">INI format · hosts.ini, inventory.cfg, etc.</span>
+							<span class="file-sub">INI format · hosts, inventory, hosts.ini, etc.</span>
 						{/if}
 					</label>
 				</div>
