@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/brettjrea/ansible-frontend/internal/models"
 	"github.com/brettjrea/ansible-frontend/internal/store"
@@ -127,7 +129,9 @@ func (h *PlaybooksHandler) Files(c *gin.Context) {
 	}
 	defer os.RemoveAll(dir)
 
-	if err := cloneShallow(c.Request.Context(), p, dir); err != nil {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 25*time.Second)
+	defer cancel()
+	if err := cloneShallow(ctx, p, dir); err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
@@ -184,7 +188,9 @@ func (h *PlaybooksHandler) Scan(c *gin.Context) {
 	}
 	defer os.RemoveAll(dir)
 
-	if err := cloneShallow(c.Request.Context(), p, dir); err != nil {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 25*time.Second)
+	defer cancel()
+	if err := cloneShallow(ctx, p, dir); err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
