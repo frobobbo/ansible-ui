@@ -24,8 +24,9 @@
 	});
 
 	$effect(() => {
-		const isLoginPage = $page.url.pathname === '/login';
-		if (!$isAuthenticated && !isLoginPage) {
+		const publicPaths = ['/login', '/forgot-password', '/reset-password'];
+		const isPublic = publicPaths.some(p => $page.url.pathname.startsWith(p));
+		if (!$isAuthenticated && !isPublic) {
 			goto('/login');
 		}
 	});
@@ -42,7 +43,7 @@
 <Toast />
 <ConfirmDialog />
 
-{#if $page.url.pathname === '/login'}
+{#if $page.url.pathname === '/login' || $page.url.pathname.startsWith('/forgot-password') || $page.url.pathname.startsWith('/reset-password')}
 	{@render children()}
 {:else if $isAuthenticated}
 	<div class="layout">
