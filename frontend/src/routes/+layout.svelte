@@ -60,7 +60,7 @@
 				<span></span>
 				<span></span>
 			</button>
-			<span class="topbar-brand">Ansible UI</span>
+			<span class="topbar-brand">Automation Hub</span>
 		</header>
 
 		<!-- Backdrop (mobile) -->
@@ -75,7 +75,7 @@
 					<line x1="12" y1="6" x2="12" y2="18" stroke-width="2.5" stroke-linecap="round"/>
 					<line x1="6" y1="12" x2="18" y2="12" stroke-width="2.5" stroke-linecap="round"/>
 				</svg>
-				Ansible UI
+				Automation Hub
 			</div>
 
 			<div class="nav-items">

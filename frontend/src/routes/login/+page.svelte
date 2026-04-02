@@ -30,8 +30,8 @@
 			<svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
 				<polygon points="5,3 19,12 5,21"/>
 			</svg>
-			<h1>Ansible UI</h1>
-			<p class="subtitle">Sign in to manage your playbooks</p>
+			<h1>Automation Hub</h1>
+			<p class="subtitle">Sign in to continue</p>
 		</div>
 		<div class="login-body">
 			{#if error}
