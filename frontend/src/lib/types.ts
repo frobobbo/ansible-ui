@@ -133,6 +133,12 @@ export interface AuditLog {
 	created_at: string;
 }
 
+export interface GitHubSettings {
+	github_token: string;
+	github_repo: string;  // e.g. "owner/repo"
+	github_branch: string;
+}
+
 export interface EmailSettings {
 	email_provider: string; // "smtp" | "mailgun" | ""
 	smtp_host: string;

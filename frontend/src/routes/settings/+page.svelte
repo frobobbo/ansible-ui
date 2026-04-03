@@ -3,10 +3,11 @@
 	import { settings as settingsApi, ApiError } from '$lib/api';
 	import { currentUser } from '$lib/stores';
 	import { toast } from '$lib/toast';
-	import type { EmailSettings } from '$lib/types';
+	import type { EmailSettings, GitHubSettings } from '$lib/types';
 
 	let loading = $state(true);
 	let saving = $state(false);
+	let savingGitHub = $state(false);
 	let testing = $state(false);
 	let testEmail = $state('');
 
@@ -23,21 +24,34 @@
 		mailgun_region: 'us',
 	});
 
+	let github = $state<GitHubSettings>({
+		github_token: '',
+		github_repo: '',
+		github_branch: '',
+	});
+
 	onMount(async () => {
 		try {
-			const data = await settingsApi.getEmail();
-			// Merge fetched values, keeping defaults for any missing fields
+			const [emailData, githubData] = await Promise.all([
+				settingsApi.getEmail(),
+				settingsApi.getGitHub(),
+			]);
 			form = {
-				email_provider: data.email_provider || '',
-				smtp_host: data.smtp_host || '',
-				smtp_port: data.smtp_port || '587',
-				smtp_username: data.smtp_username || '',
-				smtp_password: data.smtp_password || '',
-				smtp_from: data.smtp_from || '',
-				mailgun_api_key: data.mailgun_api_key || '',
-				mailgun_domain: data.mailgun_domain || '',
-				mailgun_from: data.mailgun_from || '',
-				mailgun_region: data.mailgun_region || 'us',
+				email_provider: emailData.email_provider || '',
+				smtp_host: emailData.smtp_host || '',
+				smtp_port: emailData.smtp_port || '587',
+				smtp_username: emailData.smtp_username || '',
+				smtp_password: emailData.smtp_password || '',
+				smtp_from: emailData.smtp_from || '',
+				mailgun_api_key: emailData.mailgun_api_key || '',
+				mailgun_domain: emailData.mailgun_domain || '',
+				mailgun_from: emailData.mailgun_from || '',
+				mailgun_region: emailData.mailgun_region || 'us',
+			};
+			github = {
+				github_token: githubData.github_token || '',
+				github_repo: githubData.github_repo || '',
+				github_branch: githubData.github_branch || '',
 			};
 			testEmail = $currentUser?.email || '';
 		} finally {
@@ -49,11 +63,23 @@
 		saving = true;
 		try {
 			await settingsApi.updateEmail(form);
-			toast.success('Settings saved');
+			toast.success('Email settings saved');
 		} catch (err) {
 			toast.error(err instanceof ApiError ? err.message : 'Save failed');
 		} finally {
 			saving = false;
+		}
+	}
+
+	async function saveGitHub() {
+		savingGitHub = true;
+		try {
+			await settingsApi.updateGitHub(github);
+			toast.success('GitHub settings saved');
+		} catch (err) {
+			toast.error(err instanceof ApiError ? err.message : 'Save failed');
+		} finally {
+			savingGitHub = false;
 		}
 	}
 
@@ -196,7 +222,40 @@
 
 		<div class="form-actions">
 			<button type="submit" class="btn btn-primary" disabled={saving}>
-				{saving ? 'Saving…' : 'Save Settings'}
+				{saving ? 'Saving…' : 'Save Email Settings'}
+			</button>
+		</div>
+	</form>
+
+	<!-- ── GitHub Section ──────────────────────────────────────────── -->
+	<form onsubmit={(e) => { e.preventDefault(); saveGitHub(); }} style="margin-top:2rem">
+		<div class="section-header">
+			<h2>GitHub</h2>
+			<p class="section-hint">Used by the EE Editor to read and commit execution environment definition files.</p>
+		</div>
+		<div class="card">
+			<div class="form-group">
+				<label for="gh_token">Personal Access Token</label>
+				<input id="gh_token" class="form-control" type="password" bind:value={github.github_token} placeholder="github_pat_••••••••••••" autocomplete="new-password" />
+				<span class="form-hint">
+					Needs <strong>Contents: Read &amp; Write</strong> scope on the target repository.
+					Create one at <strong>GitHub → Settings → Developer settings → Personal access tokens</strong>.
+				</span>
+			</div>
+			<div class="form-row">
+				<div class="form-group">
+					<label for="gh_repo">Repository</label>
+					<input id="gh_repo" class="form-control" type="text" bind:value={github.github_repo} placeholder="owner/repo" />
+				</div>
+				<div class="form-group" style="max-width:160px">
+					<label for="gh_branch">Branch</label>
+					<input id="gh_branch" class="form-control" type="text" bind:value={github.github_branch} placeholder="main" />
+				</div>
+			</div>
+		</div>
+		<div class="form-actions">
+			<button type="submit" class="btn btn-primary" disabled={savingGitHub}>
+				{savingGitHub ? 'Saving…' : 'Save GitHub Settings'}
 			</button>
 		</div>
 	</form>

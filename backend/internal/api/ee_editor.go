@@ -14,11 +14,18 @@ import (
 )
 
 // EEEditorHandler talks to the GitHub Contents API to read/write EE definition files.
-type EEEditorHandler struct{}
+type EEEditorHandler struct {
+	settings githubSettingsReader
+}
+
+// githubSettingsReader is satisfied by *store.SettingsStore.
+type githubSettingsReader interface {
+	GetAll() (map[string]string, error)
+}
 
 // NewEEEditorHandler creates an EEEditorHandler.
-func NewEEEditorHandler() *EEEditorHandler {
-	return &EEEditorHandler{}
+func NewEEEditorHandler(settings githubSettingsReader) *EEEditorHandler {
+	return &EEEditorHandler{settings: settings}
 }
 
 // eeFileMap maps JSON keys to GitHub file paths.
@@ -56,10 +63,25 @@ type githubConfig struct {
 	Branch string
 }
 
-func getGitHubConfig() (githubConfig, bool) {
-	token := os.Getenv("GITHUB_TOKEN")
-	repo := os.Getenv("GITHUB_REPO")
-	branch := os.Getenv("GITHUB_BRANCH")
+func (h *EEEditorHandler) getGitHubConfig() (githubConfig, bool) {
+	var token, repo, branch string
+	if h.settings != nil {
+		if s, err := h.settings.GetAll(); err == nil {
+			token = s["github_token"]
+			repo = s["github_repo"]
+			branch = s["github_branch"]
+		}
+	}
+	// Fall back to env vars for any missing values
+	if token == "" {
+		token = os.Getenv("GITHUB_TOKEN")
+	}
+	if repo == "" {
+		repo = os.Getenv("GITHUB_REPO")
+	}
+	if branch == "" {
+		branch = os.Getenv("GITHUB_BRANCH")
+	}
 	if branch == "" {
 		branch = "main"
 	}
@@ -154,9 +176,9 @@ func putGitHubFile(cfg githubConfig, path, message, content, sha string) error {
 // Get fetches all four EE definition files from GitHub.
 // GET /api/ee
 func (h *EEEditorHandler) Get(c *gin.Context) {
-	cfg, ok := getGitHubConfig()
+	cfg, ok := h.getGitHubConfig()
 	if !ok {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "GITHUB_TOKEN and GITHUB_REPO env vars are required"})
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "GitHub token and repository are not configured. Set them in Settings → GitHub."})
 		return
 	}
 
@@ -177,9 +199,9 @@ func (h *EEEditorHandler) Get(c *gin.Context) {
 // Update commits changes to EE definition files in GitHub.
 // PUT /api/ee
 func (h *EEEditorHandler) Update(c *gin.Context) {
-	cfg, ok := getGitHubConfig()
+	cfg, ok := h.getGitHubConfig()
 	if !ok {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "GITHUB_TOKEN and GITHUB_REPO env vars are required"})
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "GitHub token and repository are not configured. Set them in Settings → GitHub."})
 		return
 	}
 

@@ -157,6 +157,8 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, vaultUploadDir string, for
 			protected.GET("/settings/email", auth.RequireAdmin, settingsH.GetEmail)
 			protected.PUT("/settings/email", auth.RequireAdmin, settingsH.UpdateEmail)
 			protected.POST("/settings/email/test", auth.RequireAdmin, settingsH.TestEmail)
+			protected.GET("/settings/github", auth.RequireAdmin, settingsH.GetGitHub)
+			protected.PUT("/settings/github", auth.RequireAdmin, settingsH.UpdateGitHub)
 
 			// Audit log (admin only)
 			protected.GET("/audit", auth.RequireAdmin, auditH.List)

@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import { authStore } from './stores';
-import type { AuditLog, AuthResponse, EEFiles, EmailSettings, Form, FormField, Host, Playbook, Run, Server, ServerGroup, SSHCert, User, Vault, VarSuggestion } from './types';
+import type { AuditLog, AuthResponse, EEFiles, EmailSettings, GitHubSettings, Form, FormField, Host, Playbook, Run, Server, ServerGroup, SSHCert, User, Vault, VarSuggestion } from './types';
 
 export class ApiError extends Error {
 	constructor(public status: number, message: string) {
@@ -200,6 +200,9 @@ export const settings = {
 			method: 'POST',
 			body: JSON.stringify({ to, config }),
 		}),
+	getGitHub: () => request<GitHubSettings>('/settings/github'),
+	updateGitHub: (data: GitHubSettings) =>
+		request<GitHubSettings>('/settings/github', { method: 'PUT', body: JSON.stringify(data) }),
 };
 
 export const ee = {

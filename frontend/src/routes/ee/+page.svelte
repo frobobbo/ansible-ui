@@ -74,13 +74,13 @@
 <div class="page-header">
 	<div>
 		<h1>Execution Environment</h1>
-		<p class="subtitle">Edit EE definition files and commit them to GitHub. Requires <code>GITHUB_TOKEN</code> and <code>GITHUB_REPO</code> env vars.</p>
+		<p class="subtitle">Edit EE definition files and commit them to GitHub.</p>
 	</div>
 </div>
 
 {#if notConfigured}
 	<div class="alert alert-error">
-		GitHub integration is not configured. Set the <strong>GITHUB_TOKEN</strong> and <strong>GITHUB_REPO</strong> environment variables on the server to enable this feature.
+		GitHub integration is not configured. Go to <a href="/settings" style="color:inherit;font-weight:600">Settings → GitHub</a> to add your token and repository.
 	</div>
 {:else if loading}
 	<p class="empty-state">Loading...</p>

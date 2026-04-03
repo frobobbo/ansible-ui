@@ -66,7 +66,7 @@ func main() {
 	hostsH := api.NewHostsHandler(db.Hosts(), db.Audit())
 
 	// EE Editor handler (GitHub Contents API proxy)
-	eeH := api.NewEEEditorHandler()
+	eeH := api.NewEEEditorHandler(db.Settings())
 
 	// Router
 	router := api.NewRouter(db, jwtSvc, "./data/vaults", "./data/form-images", jwtSecret, runsH, sched, sshCertsH, hostsH, eeH)
