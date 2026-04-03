@@ -3,9 +3,15 @@
     <id>automation-hub</id>
     <name>Automation Hub</name>
     <description>Run Ansible automation forms directly from the Plesk panel.</description>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <release>1</release>
     <vendor>StrategyPlus Solutions</vendor>
     <plesk-min-version>18.0</plesk-min-version>
     <php-min-version>7.4</php-min-version>
+    <entry-points>
+        <entry-point>
+            <label>Open</label>
+            <url>/modules/automation-hub/index/index</url>
+        </entry-point>
+    </entry-points>
 </module>
