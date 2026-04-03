@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<module>
+    <id>automation-hub</id>
+    <name>Automation Hub</name>
+    <description>Run Ansible automation forms directly from the Plesk panel.</description>
+    <version>1.0.0</version>
+    <release>1</release>
+    <vendor>StrategyPlus Solutions</vendor>
+    <plesk-min-version>18.0</plesk-min-version>
+    <php-min-version>7.4</php-min-version>
+</module>

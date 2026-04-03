@@ -1,0 +1,303 @@
+<?php
+/** @var $this Zend_View */
+$notConfigured = $this->notConfigured;
+$settingsUrl   = $this->settingsUrl;
+$proxyUrl      = $this->proxyUrl;
+?>
+<style>
+.ah-wrap { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1e293b; }
+.ah-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+.ah-topbar h2 { margin: 0; font-size: 1.25rem; font-weight: 700; color: #0f172a; }
+.ah-btn { display: inline-flex; align-items: center; gap: .4rem; padding: .45rem 1rem;
+    border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; color: #334155;
+    font-size: .875rem; cursor: pointer; text-decoration: none; transition: all .15s; }
+.ah-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
+.ah-btn-primary { background: #0891b2; border-color: #0891b2; color: #fff; }
+.ah-btn-primary:hover { background: #0e7490; border-color: #0e7490; }
+.ah-btn-primary:disabled { background: #67e8f9; border-color: #67e8f9; cursor: not-allowed; }
+.ah-alert { padding: .875rem 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: .9rem; }
+.ah-alert-warn { background: #fef9c3; border: 1px solid #fde047; color: #713f12; }
+.ah-alert-error { background: #fee2e2; border: 1px solid #fca5a5; color: #7f1d1d; }
+.ah-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+.ah-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+    padding: 1.25rem; display: flex; flex-direction: column; gap: .75rem;
+    transition: box-shadow .15s; }
+.ah-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.08); border-color: #94a3b8; }
+.ah-card-name { font-weight: 600; font-size: 1rem; color: #0f172a; }
+.ah-card-desc { font-size: .85rem; color: #64748b; flex: 1; }
+.ah-card-foot { display: flex; align-items: center; justify-content: space-between; }
+.ah-badge { font-size: .7rem; font-weight: 600; padding: .2rem .6rem; border-radius: 999px;
+    background: #e0f2fe; color: #0369a1; }
+.ah-runner { background: #fff; border: 1px solid #0891b2; border-radius: 10px;
+    margin-top: 1.5rem; overflow: hidden; }
+.ah-runner-header { background: #0891b2; color: #fff; padding: 1rem 1.25rem;
+    display: flex; align-items: center; justify-content: space-between; }
+.ah-runner-header h3 { margin: 0; font-size: 1rem; }
+.ah-runner-body { padding: 1.25rem; }
+.ah-close { background: none; border: none; color: #fff; font-size: 1.25rem;
+    cursor: pointer; line-height: 1; padding: 0; opacity: .8; }
+.ah-close:hover { opacity: 1; }
+.ah-fields { display: grid; gap: .875rem; }
+.ah-field label { display: block; font-size: .8rem; font-weight: 600;
+    color: #475569; margin-bottom: .3rem; text-transform: uppercase; letter-spacing: .04em; }
+.ah-field input[type=text], .ah-field input[type=number], .ah-field select {
+    width: 100%; padding: .5rem .75rem; border: 1px solid #cbd5e1; border-radius: 6px;
+    font-size: .9rem; background: #f8fafc; box-sizing: border-box; }
+.ah-field input:focus, .ah-field select:focus { outline: 2px solid #0891b2; border-color: transparent; background: #fff; }
+.ah-field-bool { display: flex; align-items: center; gap: .5rem; }
+.ah-field-bool input[type=checkbox] { width: 18px; height: 18px; accent-color: #0891b2; }
+.ah-runner-actions { margin-top: 1.25rem; display: flex; gap: .75rem; align-items: center; }
+.ah-status { font-size: .85rem; font-weight: 600; padding: .35rem .75rem; border-radius: 6px; }
+.ah-status-pending, .ah-status-running { background: #e0f2fe; color: #0369a1; }
+.ah-status-success { background: #dcfce7; color: #166534; }
+.ah-status-failed  { background: #fee2e2; color: #991b1b; }
+.ah-output { margin-top: 1.25rem; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; }
+.ah-output-bar { background: #1e293b; color: #94a3b8; font-size: .75rem; padding: .4rem .875rem;
+    font-family: monospace; display: flex; justify-content: space-between; align-items: center; }
+.ah-output pre { margin: 0; padding: .875rem; background: #0f172a; color: #e2e8f0;
+    font-family: 'Courier New', monospace; font-size: .8rem; line-height: 1.6;
+    max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+.ah-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #bae6fd;
+    border-top-color: #0891b2; border-radius: 50%; animation: ah-spin .7s linear infinite; }
+@keyframes ah-spin { to { transform: rotate(360deg); } }
+.ah-empty { text-align: center; padding: 3rem 1rem; color: #94a3b8; font-size: .95rem; }
+</style>
+
+<div class="ah-wrap">
+    <div class="ah-topbar">
+        <h2>Automation Hub</h2>
+        <a href="<?= htmlspecialchars($settingsUrl) ?>" class="ah-btn">⚙ Settings</a>
+    </div>
+
+    <?php if ($notConfigured): ?>
+        <div class="ah-alert ah-alert-warn">
+            Automation Hub is not configured.
+            <a href="<?= htmlspecialchars($settingsUrl) ?>">Open Settings</a> to enter your server URL and credentials.
+        </div>
+    <?php else: ?>
+
+        <div id="ah-forms-area">
+            <div class="ah-empty"><span class="ah-spinner"></span>&nbsp; Loading forms…</div>
+        </div>
+
+        <div id="ah-runner" class="ah-runner" style="display:none">
+            <div class="ah-runner-header">
+                <h3 id="ah-runner-title">Run Form</h3>
+                <button class="ah-close" onclick="AH.closeRunner()" title="Close">&#x2715;</button>
+            </div>
+            <div class="ah-runner-body">
+                <div id="ah-fields" class="ah-fields"></div>
+                <div class="ah-runner-actions">
+                    <button id="ah-run-btn" class="ah-btn ah-btn-primary" onclick="AH.runForm()">&#9654; Run</button>
+                    <span id="ah-run-status"></span>
+                </div>
+                <div id="ah-output" class="ah-output" style="display:none">
+                    <div class="ah-output-bar">
+                        <span>Output</span>
+                        <span id="ah-output-status"></span>
+                    </div>
+                    <pre id="ah-output-text"></pre>
+                </div>
+            </div>
+        </div>
+
+    <?php endif; ?>
+</div>
+
+<script>
+const AH = (() => {
+    const PROXY = <?= json_encode($proxyUrl) ?>;
+    let currentForm = null;
+    let currentFields = [];
+    let pollTimer = null;
+
+    // ── API ──────────────────────────────────────────────────────────────────
+
+    async function api(method, endpoint, body = null) {
+        const resp = await fetch(PROXY, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ method, endpoint, body }),
+        });
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+        return data;
+    }
+
+    // ── Forms list ───────────────────────────────────────────────────────────
+
+    async function loadForms() {
+        try {
+            const forms = await api('GET', '/api/forms');
+            renderForms(Array.isArray(forms) ? forms : []);
+        } catch (e) {
+            document.getElementById('ah-forms-area').innerHTML =
+                `<div class="ah-alert ah-alert-error">Failed to load forms: ${esc(e.message)}</div>`;
+        }
+    }
+
+    function renderForms(forms) {
+        const area = document.getElementById('ah-forms-area');
+        if (!forms.length) {
+            area.innerHTML = '<div class="ah-empty">No forms found. Create forms in Automation Hub first.</div>';
+            return;
+        }
+        area.innerHTML = '<div class="ah-grid">' + forms.map(f => `
+            <div class="ah-card">
+                <div class="ah-card-name">${esc(f.name)}</div>
+                ${f.description ? `<div class="ah-card-desc">${esc(f.description)}</div>` : '<div class="ah-card-desc"></div>'}
+                <div class="ah-card-foot">
+                    ${f.is_quick_action ? '<span class="ah-badge">Quick Action</span>' : '<span></span>'}
+                    <button class="ah-btn ah-btn-primary" onclick="AH.openRunner(${esc(JSON.stringify(f))})">&#9654; Run</button>
+                </div>
+            </div>
+        `).join('') + '</div>';
+    }
+
+    // ── Runner ───────────────────────────────────────────────────────────────
+
+    async function openRunner(form) {
+        stopPoll();
+        currentForm = form;
+
+        document.getElementById('ah-runner-title').textContent = form.name;
+        document.getElementById('ah-fields').innerHTML = '<div class="ah-empty"><span class="ah-spinner"></span>&nbsp; Loading fields…</div>';
+        document.getElementById('ah-output').style.display = 'none';
+        document.getElementById('ah-run-status').innerHTML = '';
+        document.getElementById('ah-run-btn').disabled = false;
+        document.getElementById('ah-runner').style.display = '';
+        document.getElementById('ah-runner').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        try {
+            const fields = await api('GET', `/api/forms/${form.id}/fields`);
+            currentFields = Array.isArray(fields) ? fields : [];
+            renderFields(currentFields);
+        } catch (e) {
+            document.getElementById('ah-fields').innerHTML =
+                `<div class="ah-alert ah-alert-error">Failed to load fields: ${esc(e.message)}</div>`;
+        }
+    }
+
+    function renderFields(fields) {
+        const el = document.getElementById('ah-fields');
+        if (!fields.length) {
+            el.innerHTML = '<p style="color:#64748b;font-size:.9rem;margin:0">No input fields — click Run to execute with defaults.</p>';
+            return;
+        }
+        el.innerHTML = fields.map(f => {
+            const req = f.required ? '<span style="color:#e11d48"> *</span>' : '';
+            if (f.field_type === 'bool') {
+                return `<div class="ah-field">
+                    <div class="ah-field-bool">
+                        <input type="checkbox" id="f_${f.id}" ${f.default_value === 'true' ? 'checked' : ''}>
+                        <label for="f_${f.id}" style="text-transform:none;font-size:.9rem">${esc(f.label)}${req}</label>
+                    </div>
+                </div>`;
+            }
+            if (f.field_type === 'select') {
+                let opts = [];
+                try { opts = JSON.parse(f.options); } catch(_) {}
+                return `<div class="ah-field">
+                    <label for="f_${f.id}">${esc(f.label)}${req}</label>
+                    <select id="f_${f.id}">${opts.map(o => `<option value="${esc(o)}" ${o === f.default_value ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>
+                </div>`;
+            }
+            return `<div class="ah-field">
+                <label for="f_${f.id}">${esc(f.label)}${req}</label>
+                <input type="${f.field_type === 'number' ? 'number' : 'text'}" id="f_${f.id}"
+                    value="${esc(f.default_value)}" ${f.required ? 'required' : ''}>
+            </div>`;
+        }).join('');
+    }
+
+    function closeRunner() {
+        stopPoll();
+        document.getElementById('ah-runner').style.display = 'none';
+        currentForm = null;
+        currentFields = [];
+    }
+
+    // ── Run ──────────────────────────────────────────────────────────────────
+
+    async function runForm() {
+        if (!currentForm) return;
+        stopPoll();
+
+        // Collect field values
+        const variables = {};
+        for (const f of currentFields) {
+            const el = document.getElementById('f_' + f.id);
+            if (!el) continue;
+            if (f.field_type === 'bool') {
+                variables[f.name] = el.checked ? 'true' : 'false';
+            } else {
+                const v = el.value.trim();
+                if (f.required && v === '') { el.focus(); return; }
+                variables[f.name] = v;
+            }
+        }
+
+        const btn = document.getElementById('ah-run-btn');
+        btn.disabled = true;
+        setStatus('pending', 'Starting…');
+
+        const outputEl = document.getElementById('ah-output');
+        const outputText = document.getElementById('ah-output-text');
+        outputEl.style.display = '';
+        outputText.textContent = '';
+
+        try {
+            const res = await api('POST', '/api/runs', { form_id: currentForm.id, variables });
+            pollRun(res.run_id);
+        } catch (e) {
+            setStatus('failed', 'Error: ' + e.message);
+            btn.disabled = false;
+        }
+    }
+
+    function pollRun(runId) {
+        pollTimer = setInterval(async () => {
+            try {
+                const run = await api('GET', `/api/runs/${runId}`);
+                document.getElementById('ah-output-text').textContent = stripAnsi(run.output || '');
+
+                const done = run.status === 'success' || run.status === 'failed';
+                setStatus(run.status, run.status.charAt(0).toUpperCase() + run.status.slice(1));
+                document.getElementById('ah-output-status').textContent = run.status;
+
+                if (done) {
+                    stopPoll();
+                    document.getElementById('ah-run-btn').disabled = false;
+                }
+            } catch (_) { /* keep polling */ }
+        }, 2000);
+    }
+
+    function stopPoll() {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    function setStatus(state, text) {
+        const el = document.getElementById('ah-run-status');
+        el.className = 'ah-status ah-status-' + state;
+        el.textContent = text;
+    }
+
+    // ── Utilities ────────────────────────────────────────────────────────────
+
+    function esc(s) {
+        if (typeof s !== 'string') return String(s);
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // Strip ANSI escape codes from Ansible output
+    function stripAnsi(str) {
+        return str.replace(/\x1b\[[0-9;]*[mGKHF]/g, '');
+    }
+
+    // Bootstrap on load
+    loadForms();
+
+    return { openRunner, closeRunner, runForm };
+})();
+</script>
