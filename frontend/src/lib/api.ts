@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import { authStore } from './stores';
-import type { AuditLog, AuthResponse, EEFiles, EmailSettings, GitHubSettings, Form, FormField, Host, Playbook, Run, Server, ServerGroup, SSHCert, User, Vault, VarSuggestion } from './types';
+import type { AuditLog, AppSettings, AuthResponse, EEFiles, EmailSettings, GitHubSettings, Form, FormField, Host, Playbook, Run, Server, ServerGroup, SSHCert, User, Vault, VarSuggestion } from './types';
 
 export class ApiError extends Error {
 	constructor(public status: number, message: string) {
@@ -192,6 +192,9 @@ export const sshCerts = {
 };
 
 export const settings = {
+	getApp: () => request<AppSettings>('/settings/app'),
+	updateApp: (data: AppSettings) =>
+		request<AppSettings>('/settings/app', { method: 'PUT', body: JSON.stringify(data) }),
 	getEmail: () => request<EmailSettings>('/settings/email'),
 	updateEmail: (data: EmailSettings) =>
 		request<EmailSettings>('/settings/email', { method: 'PUT', body: JSON.stringify(data) }),

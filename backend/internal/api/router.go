@@ -41,7 +41,7 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, vaultUploadDir string, for
 	// Handlers
 	auditStore := db.Audit()
 	vaultStore := db.Vaults(jwtSecret)
-	authH := newAuthHandler(db.Users(), jwtSvc)
+	authH := newAuthHandler(db.Users(), jwtSvc, db.Settings())
 	auditH := newAuditHandler(auditStore)
 	usersH := newUsersHandler(db.Users(), auditStore)
 	settingsH := newSettingsHandler(db.Settings(), db.Users())
@@ -154,6 +154,8 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, vaultUploadDir string, for
 			protected.POST("/runs/:id/cancel", runsH.Cancel)
 
 			// Settings (admin only)
+			protected.GET("/settings/app", auth.RequireAdmin, settingsH.GetApp)
+			protected.PUT("/settings/app", auth.RequireAdmin, settingsH.UpdateApp)
 			protected.GET("/settings/email", auth.RequireAdmin, settingsH.GetEmail)
 			protected.PUT("/settings/email", auth.RequireAdmin, settingsH.UpdateEmail)
 			protected.POST("/settings/email/test", auth.RequireAdmin, settingsH.TestEmail)

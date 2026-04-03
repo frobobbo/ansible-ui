@@ -46,12 +46,13 @@ func (rl *rateLimiter) allow(ip string) bool {
 }
 
 type AuthHandler struct {
-	users  *store.UserStore
-	jwtSvc *auth.JWTService
+	users    *store.UserStore
+	jwtSvc   *auth.JWTService
+	settings *store.SettingsStore
 }
 
-func newAuthHandler(users *store.UserStore, jwtSvc *auth.JWTService) *AuthHandler {
-	return &AuthHandler{users: users, jwtSvc: jwtSvc}
+func newAuthHandler(users *store.UserStore, jwtSvc *auth.JWTService, settings *store.SettingsStore) *AuthHandler {
+	return &AuthHandler{users: users, jwtSvc: jwtSvc, settings: settings}
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -137,7 +138,15 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		return
 	}
 
-	baseURL := os.Getenv("APP_URL")
+	baseURL := ""
+	if h.settings != nil {
+		if s, err := h.settings.GetAll(); err == nil {
+			baseURL = s["app_url"]
+		}
+	}
+	if baseURL == "" {
+		baseURL = os.Getenv("APP_URL")
+	}
 	if baseURL == "" {
 		scheme := "https"
 		if c.Request.TLS == nil && c.GetHeader("X-Forwarded-Proto") != "https" {

@@ -17,6 +17,8 @@ func newSettingsHandler(settings *store.SettingsStore, users *store.UserStore) *
 	return &SettingsHandler{settings: settings, users: users}
 }
 
+var appSettingKeys = []string{"app_url"}
+
 var githubSettingKeys = []string{
 	"github_token", "github_repo", "github_branch",
 }
@@ -64,6 +66,38 @@ func (h *SettingsHandler) UpdateEmail(c *gin.Context) {
 	all, _ := h.settings.GetAll()
 	notify.SetConfig(notify.ConfigFromSettings(all))
 
+	c.JSON(http.StatusOK, toSave)
+}
+
+func (h *SettingsHandler) GetApp(c *gin.Context) {
+	all, err := h.settings.GetAll()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	result := map[string]string{}
+	for _, k := range appSettingKeys {
+		result[k] = all[k]
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+func (h *SettingsHandler) UpdateApp(c *gin.Context) {
+	var req map[string]string
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	toSave := map[string]string{}
+	for _, k := range appSettingKeys {
+		if v, ok := req[k]; ok {
+			toSave[k] = v
+		}
+	}
+	if err := h.settings.SetMany(toSave); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	c.JSON(http.StatusOK, toSave)
 }
 

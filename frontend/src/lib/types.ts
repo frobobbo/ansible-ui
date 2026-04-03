@@ -133,6 +133,10 @@ export interface AuditLog {
 	created_at: string;
 }
 
+export interface AppSettings {
+	app_url: string;
+}
+
 export interface GitHubSettings {
 	github_token: string;
 	github_repo: string;  // e.g. "owner/repo"

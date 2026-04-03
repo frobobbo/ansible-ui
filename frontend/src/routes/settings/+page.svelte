@@ -3,9 +3,10 @@
 	import { settings as settingsApi, ApiError } from '$lib/api';
 	import { currentUser } from '$lib/stores';
 	import { toast } from '$lib/toast';
-	import type { EmailSettings, GitHubSettings } from '$lib/types';
+	import type { AppSettings, EmailSettings, GitHubSettings } from '$lib/types';
 
 	let loading = $state(true);
+	let savingApp = $state(false);
 	let saving = $state(false);
 	let savingGitHub = $state(false);
 	let testing = $state(false);
@@ -24,6 +25,8 @@
 		mailgun_region: 'us',
 	});
 
+	let app = $state<AppSettings>({ app_url: '' });
+
 	let github = $state<GitHubSettings>({
 		github_token: '',
 		github_repo: '',
@@ -32,10 +35,12 @@
 
 	onMount(async () => {
 		try {
-			const [emailData, githubData] = await Promise.all([
+			const [appData, emailData, githubData] = await Promise.all([
+				settingsApi.getApp(),
 				settingsApi.getEmail(),
 				settingsApi.getGitHub(),
 			]);
+			app = { app_url: appData.app_url || '' };
 			form = {
 				email_provider: emailData.email_provider || '',
 				smtp_host: emailData.smtp_host || '',
@@ -68,6 +73,18 @@
 			toast.error(err instanceof ApiError ? err.message : 'Save failed');
 		} finally {
 			saving = false;
+		}
+	}
+
+	async function saveApp() {
+		savingApp = true;
+		try {
+			await settingsApi.updateApp(app);
+			toast.success('Application settings saved');
+		} catch (err) {
+			toast.error(err instanceof ApiError ? err.message : 'Save failed');
+		} finally {
+			savingApp = false;
 		}
 	}
 
@@ -104,7 +121,30 @@
 {#if loading}
 	<p class="empty-state">Loading…</p>
 {:else}
-	<form onsubmit={(e) => { e.preventDefault(); save(); }}>
+	<!-- ── Application Section ──────────────────────────────────────── -->
+	<form onsubmit={(e) => { e.preventDefault(); saveApp(); }}>
+		<div class="section-header">
+			<h2>Application</h2>
+			<p class="section-hint">General application settings.</p>
+		</div>
+		<div class="card">
+			<div class="form-group">
+				<label for="app_url">Base URL</label>
+				<input id="app_url" class="form-control" type="url" bind:value={app.app_url} placeholder="https://ansible.johnsons.casa" />
+				<span class="form-hint">
+					Used to build links in password reset emails. Leave blank to auto-detect from the incoming request.
+					Set this if the app is behind a reverse proxy and auto-detection produces the wrong URL.
+				</span>
+			</div>
+		</div>
+		<div class="form-actions">
+			<button type="submit" class="btn btn-primary" disabled={savingApp}>
+				{savingApp ? 'Saving…' : 'Save Application Settings'}
+			</button>
+		</div>
+	</form>
+
+	<form onsubmit={(e) => { e.preventDefault(); save(); }} style="margin-top:2rem">
 
 		<!-- ── Email Section ─────────────────────────────────────────── -->
 		<div class="section-header">
