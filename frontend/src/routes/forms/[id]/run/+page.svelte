@@ -92,9 +92,22 @@
 		return { pending: 'badge-muted', running: 'badge-info', success: 'badge-success', failed: 'badge-danger' }[status] || 'badge-muted';
 	}
 
-	function isFieldVisible(field: { depends_on_name: string; depends_on_value: string }): boolean {
+	function isFieldVisible(field: { depends_on_name: string; depends_on_operator: string; depends_on_value: string }): boolean {
 		if (!field.depends_on_name) return true;
-		return variables[field.depends_on_name] === field.depends_on_value;
+		const parent = variables[field.depends_on_name] ?? '';
+		const val = field.depends_on_value ?? '';
+		const op = field.depends_on_operator || 'eq';
+		switch (op) {
+			case 'eq':          return parent === val;
+			case 'neq':         return parent !== val;
+			case 'in':          return val.split(',').map(s => s.trim()).includes(parent);
+			case 'not_in':      return !val.split(',').map(s => s.trim()).includes(parent);
+			case 'contains':    return parent.includes(val);
+			case 'not_contains':return !parent.includes(val);
+			case 'empty':       return parent === '' || parent === 'false';
+			case 'not_empty':   return parent !== '' && parent !== 'false';
+			default:            return parent === val;
+		}
 	}
 
 	let liveOutputHtml = $derived(conv.toHtml(outputLines.join('\n')));

@@ -94,8 +94,9 @@ CREATE TABLE IF NOT EXISTS form_fields (
     options       TEXT NOT NULL DEFAULT '[]',
     required         INTEGER NOT NULL DEFAULT 0,
     sort_order       INTEGER NOT NULL DEFAULT 0,
-    depends_on_name  TEXT NOT NULL DEFAULT '',
-    depends_on_value TEXT NOT NULL DEFAULT ''
+    depends_on_name     TEXT NOT NULL DEFAULT '',
+    depends_on_operator TEXT NOT NULL DEFAULT 'eq',
+    depends_on_value    TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS runs (

@@ -51,6 +51,7 @@ export interface FormField {
 	required: boolean;
 	sort_order: number;
 	depends_on_name: string;
+	depends_on_operator: string;
 	depends_on_value: string;
 }
 

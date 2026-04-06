@@ -84,7 +84,7 @@
 	}
 
 	function addField() {
-		fields = [...fields, { name: '', label: '', field_type: 'text' as FieldType, default_value: '', options: '[]', required: false, sort_order: fields.length, depends_on_name: '', depends_on_value: '' }];
+		fields = [...fields, { name: '', label: '', field_type: 'text' as FieldType, default_value: '', options: '[]', required: false, sort_order: fields.length, depends_on_name: '', depends_on_operator: 'eq', depends_on_value: '' }];
 	}
 
 	function removeField(i: number) {
@@ -124,7 +124,12 @@
 	}
 
 	function onDependsOnChange(field: Partial<FormField>) {
+		field.depends_on_operator = 'eq';
 		field.depends_on_value = '';
+	}
+
+	function operatorNeedsValue(op: string) {
+		return op !== 'empty' && op !== 'not_empty';
 	}
 
 	function getDependsParent(field: Partial<FormField>) {
@@ -340,22 +345,36 @@
 								{/each}
 							</select>
 							{#if field.depends_on_name}
-								{@const parent = getDependsParent(field)}
-								<span class="depends-eq">=</span>
-								{#if parent?.field_type === 'bool'}
-									<select class="form-control depends-val" bind:value={field.depends_on_value}>
-										<option value="true">true</option>
-										<option value="false">false</option>
-									</select>
-								{:else if parent?.field_type === 'select'}
-									<select class="form-control depends-val" bind:value={field.depends_on_value}>
-										<option value="">Select value…</option>
-										{#each (() => { try { return JSON.parse(parent.options || '[]'); } catch { return []; } })() as opt}
-											<option value={opt}>{opt}</option>
-										{/each}
-									</select>
-								{:else}
-									<input class="form-control depends-val" bind:value={field.depends_on_value} placeholder="value" />
+								<select class="form-control depends-op" bind:value={field.depends_on_operator}>
+									<option value="eq">equals</option>
+									<option value="neq">not equals</option>
+									<option value="in">in</option>
+									<option value="not_in">not in</option>
+									<option value="contains">contains</option>
+									<option value="not_contains">not contains</option>
+									<option value="empty">is empty</option>
+									<option value="not_empty">is not empty</option>
+								</select>
+								{#if operatorNeedsValue(field.depends_on_operator ?? 'eq')}
+									{@const parent = getDependsParent(field)}
+									{@const op = field.depends_on_operator ?? 'eq'}
+									{#if op === 'in' || op === 'not_in'}
+										<input class="form-control depends-val" bind:value={field.depends_on_value} placeholder="val1, val2, …" title="Comma-separated list of values" />
+									{:else if parent?.field_type === 'bool' && (op === 'eq' || op === 'neq')}
+										<select class="form-control depends-val" bind:value={field.depends_on_value}>
+											<option value="true">true</option>
+											<option value="false">false</option>
+										</select>
+									{:else if parent?.field_type === 'select' && (op === 'eq' || op === 'neq')}
+										<select class="form-control depends-val" bind:value={field.depends_on_value}>
+											<option value="">Select value…</option>
+											{#each (() => { try { return JSON.parse(parent.options || '[]'); } catch { return []; } })() as opt}
+												<option value={opt}>{opt}</option>
+											{/each}
+										</select>
+									{:else}
+										<input class="form-control depends-val" bind:value={field.depends_on_value} placeholder="value" />
+									{/if}
 								{/if}
 							{/if}
 						</div>
@@ -500,6 +519,7 @@
 	.depends-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); white-space: nowrap; }
 	.depends-eq { font-size: 0.8rem; color: var(--text-muted); }
 	.depends-select { width: 160px; flex-shrink: 0; }
+	.depends-op { width: 130px; flex-shrink: 0; }
 	.depends-val { width: 130px; flex-shrink: 0; }
 	.checkbox-label { display: flex; align-items: center; gap: 0.5rem; font-weight: 500; cursor: pointer; }
 	.file-badge { display: inline-flex; align-items: center; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; border-radius: 4px; padding: 0.15rem 0.5rem; font-size: 0.8rem; }

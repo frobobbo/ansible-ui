@@ -138,7 +138,7 @@ func (s *FormStore) SetWebhookToken(id, token string) error {
 
 func (s *FormStore) GetFields(formID string) ([]models.FormField, error) {
 	rows, err := s.db.Query(
-		"SELECT id, form_id, name, label, field_type, default_value, options, required, sort_order, depends_on_name, depends_on_value FROM form_fields WHERE form_id = ? ORDER BY sort_order",
+		"SELECT id, form_id, name, label, field_type, default_value, options, required, sort_order, depends_on_name, depends_on_operator, depends_on_value FROM form_fields WHERE form_id = ? ORDER BY sort_order",
 		formID,
 	)
 	if err != nil {
@@ -150,7 +150,7 @@ func (s *FormStore) GetFields(formID string) ([]models.FormField, error) {
 	for rows.Next() {
 		var ff models.FormField
 		var required int
-		if err := rows.Scan(&ff.ID, &ff.FormID, &ff.Name, &ff.Label, &ff.FieldType, &ff.DefaultValue, &ff.Options, &required, &ff.SortOrder, &ff.DependsOnName, &ff.DependsOnValue); err != nil {
+		if err := rows.Scan(&ff.ID, &ff.FormID, &ff.Name, &ff.Label, &ff.FieldType, &ff.DefaultValue, &ff.Options, &required, &ff.SortOrder, &ff.DependsOnName, &ff.DependsOnOperator, &ff.DependsOnValue); err != nil {
 			return nil, err
 		}
 		ff.Required = required == 1
@@ -199,8 +199,8 @@ func (s *FormStore) Create(name, description, playbookID, playbookPath string, s
 		ff.FormID = f.ID
 		ff.SortOrder = i
 		_, err = tx.Exec(
-			"INSERT INTO form_fields (id, form_id, name, label, field_type, default_value, options, required, sort_order, depends_on_name, depends_on_value) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-			ff.ID, ff.FormID, ff.Name, ff.Label, ff.FieldType, ff.DefaultValue, ff.Options, boolToInt(ff.Required), ff.SortOrder, ff.DependsOnName, ff.DependsOnValue,
+			"INSERT INTO form_fields (id, form_id, name, label, field_type, default_value, options, required, sort_order, depends_on_name, depends_on_operator, depends_on_value) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			ff.ID, ff.FormID, ff.Name, ff.Label, ff.FieldType, ff.DefaultValue, ff.Options, boolToInt(ff.Required), ff.SortOrder, ff.DependsOnName, ff.DependsOnOperator, ff.DependsOnValue,
 		)
 		if err != nil {
 			return nil, err
@@ -235,8 +235,8 @@ func (s *FormStore) Update(id, name, description, playbookID, playbookPath strin
 		ff.FormID = id
 		ff.SortOrder = i
 		_, err = tx.Exec(
-			"INSERT INTO form_fields (id, form_id, name, label, field_type, default_value, options, required, sort_order, depends_on_name, depends_on_value) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-			ff.ID, ff.FormID, ff.Name, ff.Label, ff.FieldType, ff.DefaultValue, ff.Options, boolToInt(ff.Required), ff.SortOrder, ff.DependsOnName, ff.DependsOnValue,
+			"INSERT INTO form_fields (id, form_id, name, label, field_type, default_value, options, required, sort_order, depends_on_name, depends_on_operator, depends_on_value) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			ff.ID, ff.FormID, ff.Name, ff.Label, ff.FieldType, ff.DefaultValue, ff.Options, boolToInt(ff.Required), ff.SortOrder, ff.DependsOnName, ff.DependsOnOperator, ff.DependsOnValue,
 		)
 		if err != nil {
 			return nil, err

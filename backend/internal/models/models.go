@@ -43,8 +43,9 @@ type FormField struct {
 	Options        string `json:"options" db:"options"`
 	Required       bool   `json:"required" db:"required"`
 	SortOrder      int    `json:"sort_order" db:"sort_order"`
-	DependsOnName  string `json:"depends_on_name" db:"depends_on_name"`
-	DependsOnValue string `json:"depends_on_value" db:"depends_on_value"`
+	DependsOnName     string `json:"depends_on_name" db:"depends_on_name"`
+	DependsOnOperator string `json:"depends_on_operator" db:"depends_on_operator"`
+	DependsOnValue    string `json:"depends_on_value" db:"depends_on_value"`
 }
 
 type Vault struct {
