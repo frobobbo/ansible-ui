@@ -50,6 +50,8 @@ export interface FormField {
 	options: string; // JSON array string e.g. '["opt1","opt2"]'
 	required: boolean;
 	sort_order: number;
+	depends_on_name: string;
+	depends_on_value: string;
 }
 
 export interface Vault {

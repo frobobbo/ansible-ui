@@ -43,6 +43,7 @@
 
 		const typedVars: Record<string, unknown> = {};
 		for (const field of form.fields || []) {
+			if (!isFieldVisible(field)) continue;
 			const val = variables[field.name];
 			if (field.field_type === 'number') typedVars[field.name] = Number(val);
 			else if (field.field_type === 'bool') typedVars[field.name] = val === 'true';
@@ -91,6 +92,11 @@
 		return { pending: 'badge-muted', running: 'badge-info', success: 'badge-success', failed: 'badge-danger' }[status] || 'badge-muted';
 	}
 
+	function isFieldVisible(field: { depends_on_name: string; depends_on_value: string }): boolean {
+		if (!field.depends_on_name) return true;
+		return variables[field.depends_on_name] === field.depends_on_value;
+	}
+
 	let liveOutputHtml = $derived(conv.toHtml(outputLines.join('\n')));
 	let finalOutputHtml = $derived(conv.toHtml(runResult?.output || ''));
 </script>
@@ -114,29 +120,31 @@
 				<p class="empty-state" style="padding:0.5rem 0">This form has no fields. The playbook will run with no extra variables.</p>
 			{/if}
 			{#each form.fields ?? [] as field}
-				<div class="form-group">
-					<label>
-						{field.label}
-						{#if field.required}<span class="required">*</span>{/if}
-						<span class="var-name">({field.name})</span>
-					</label>
-					{#if field.field_type === 'bool'}
-						<select class="form-control" bind:value={variables[field.name]}>
-							<option value="false">false</option>
-							<option value="true">true</option>
-						</select>
-					{:else if field.field_type === 'select'}
-						<select class="form-control" bind:value={variables[field.name]}>
-							{#each JSON.parse(field.options || '[]') as opt}
-								<option value={opt}>{opt}</option>
-							{/each}
-						</select>
-					{:else if field.field_type === 'number'}
-						<input class="form-control" type="number" bind:value={variables[field.name]} required={field.required} />
-					{:else}
-						<input class="form-control" type="text" bind:value={variables[field.name]} required={field.required} />
-					{/if}
-				</div>
+				{#if isFieldVisible(field)}
+					<div class="form-group">
+						<label>
+							{field.label}
+							{#if field.required}<span class="required">*</span>{/if}
+							<span class="var-name">({field.name})</span>
+						</label>
+						{#if field.field_type === 'bool'}
+							<select class="form-control" bind:value={variables[field.name]}>
+								<option value="false">false</option>
+								<option value="true">true</option>
+							</select>
+						{:else if field.field_type === 'select'}
+							<select class="form-control" bind:value={variables[field.name]}>
+								{#each JSON.parse(field.options || '[]') as opt}
+									<option value={opt}>{opt}</option>
+								{/each}
+							</select>
+						{:else if field.field_type === 'number'}
+							<input class="form-control" type="number" bind:value={variables[field.name]} required={field.required} />
+						{:else}
+							<input class="form-control" type="text" bind:value={variables[field.name]} required={field.required} />
+						{/if}
+					</div>
+				{/if}
 			{/each}
 		</div>
 

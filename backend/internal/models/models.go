@@ -34,15 +34,17 @@ type Playbook struct {
 }
 
 type FormField struct {
-	ID           string `json:"id" db:"id"`
-	FormID       string `json:"form_id" db:"form_id"`
-	Name         string `json:"name" db:"name"`
-	Label        string `json:"label" db:"label"`
-	FieldType    string `json:"field_type" db:"field_type"`
-	DefaultValue string `json:"default_value" db:"default_value"`
-	Options      string `json:"options" db:"options"`
-	Required     bool   `json:"required" db:"required"`
-	SortOrder    int    `json:"sort_order" db:"sort_order"`
+	ID             string `json:"id" db:"id"`
+	FormID         string `json:"form_id" db:"form_id"`
+	Name           string `json:"name" db:"name"`
+	Label          string `json:"label" db:"label"`
+	FieldType      string `json:"field_type" db:"field_type"`
+	DefaultValue   string `json:"default_value" db:"default_value"`
+	Options        string `json:"options" db:"options"`
+	Required       bool   `json:"required" db:"required"`
+	SortOrder      int    `json:"sort_order" db:"sort_order"`
+	DependsOnName  string `json:"depends_on_name" db:"depends_on_name"`
+	DependsOnValue string `json:"depends_on_value" db:"depends_on_value"`
 }
 
 type Vault struct {

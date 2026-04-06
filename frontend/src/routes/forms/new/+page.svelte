@@ -26,6 +26,8 @@
 	let stagedImage    = $state<File | null>(null);
 	let saving         = $state(false);
 	let error          = $state('');
+	let dragIndex      = $state<number | null>(null);
+	let dragOverIndex  = $state<number | null>(null);
 
 	onMount(async () => {
 		[serverList, serverGroupList, sourceList, vaultList, hostList] = await Promise.all([
@@ -82,11 +84,51 @@
 	}
 
 	function addField() {
-		fields = [...fields, { name: '', label: '', field_type: 'text' as FieldType, default_value: '', options: '[]', required: false, sort_order: fields.length }];
+		fields = [...fields, { name: '', label: '', field_type: 'text' as FieldType, default_value: '', options: '[]', required: false, sort_order: fields.length, depends_on_name: '', depends_on_value: '' }];
 	}
 
 	function removeField(i: number) {
-		fields = fields.filter((_, idx) => idx !== i);
+		const removed = fields[i].name;
+		// Clear any dependencies that pointed to this field
+		fields = fields
+			.filter((_, idx) => idx !== i)
+			.map(f => f.depends_on_name === removed ? { ...f, depends_on_name: '', depends_on_value: '' } : f);
+	}
+
+	function onDragStart(e: DragEvent, i: number) {
+		dragIndex = i;
+		e.dataTransfer!.effectAllowed = 'move';
+	}
+
+	function onDragOver(e: DragEvent, i: number) {
+		e.preventDefault();
+		e.dataTransfer!.dropEffect = 'move';
+		dragOverIndex = i;
+	}
+
+	function onDrop(e: DragEvent, i: number) {
+		e.preventDefault();
+		if (dragIndex === null || dragIndex === i) { dragIndex = null; dragOverIndex = null; return; }
+		const arr = [...fields];
+		const [moved] = arr.splice(dragIndex, 1);
+		arr.splice(i, 0, moved);
+		fields = arr;
+		dragIndex = null;
+		dragOverIndex = null;
+	}
+
+	function onDragEnd() { dragIndex = null; dragOverIndex = null; }
+
+	function dependsOnOptions(i: number) {
+		return fields.slice(0, i).filter(f => f.name);
+	}
+
+	function onDependsOnChange(field: Partial<FormField>) {
+		field.depends_on_value = '';
+	}
+
+	function getDependsParent(field: Partial<FormField>) {
+		return fields.find(f => f.name === field.depends_on_name);
 	}
 
 	function getOptions(f: Partial<FormField>) {
@@ -241,38 +283,83 @@
 			<p class="empty-state" style="padding:0.5rem 0">No fields yet.{#if suggestions.length > 0} Click a suggestion above to add it.{/if}</p>
 		{/if}
 		{#each fields as field, i}
-			<div class="field-row">
-				<div class="field-grid">
-					<div class="form-group">
-						<label>Variable Name</label>
-						<input class="form-control" bind:value={field.name} placeholder="e.g. db_host" required />
+			<div class="field-row"
+				class:drag-over={dragOverIndex === i && dragIndex !== i}
+				ondragover={(e) => onDragOver(e, i)}
+				ondrop={(e) => onDrop(e, i)}
+				role="listitem"
+			>
+				<div class="drag-handle" draggable="true"
+					ondragstart={(e) => onDragStart(e, i)}
+					ondragend={onDragEnd}
+					title="Drag to reorder"
+				>⠿</div>
+				<div class="field-body">
+					<div class="field-grid">
+						<div class="form-group">
+							<label>Variable Name</label>
+							<input class="form-control" bind:value={field.name} placeholder="e.g. db_host" required />
+						</div>
+						<div class="form-group">
+							<label>Label</label>
+							<input class="form-control" bind:value={field.label} placeholder="Display label" required />
+						</div>
+						<div class="form-group">
+							<label>Type</label>
+							<select class="form-control" bind:value={field.field_type}>
+								<option value="text">Text</option>
+								<option value="number">Number</option>
+								<option value="bool">Boolean</option>
+								<option value="select">Select</option>
+							</select>
+						</div>
+						<div class="form-group">
+							<label>Default Value</label>
+							<input class="form-control" bind:value={field.default_value} />
+						</div>
+						{#if field.field_type === 'select'}
+							<div class="form-group" style="grid-column: span 2">
+								<label>Options (comma-separated)</label>
+								<input class="form-control" value={getOptions(field)} oninput={(e) => setOptions(field, (e.target as HTMLInputElement).value)} placeholder="opt1, opt2, opt3" />
+							</div>
+						{/if}
+						<div class="form-group field-required">
+							<label><input type="checkbox" bind:checked={field.required} /> Required</label>
+						</div>
 					</div>
-					<div class="form-group">
-						<label>Label</label>
-						<input class="form-control" bind:value={field.label} placeholder="Display label" required />
-					</div>
-					<div class="form-group">
-						<label>Type</label>
-						<select class="form-control" bind:value={field.field_type}>
-							<option value="text">Text</option>
-							<option value="number">Number</option>
-							<option value="bool">Boolean</option>
-							<option value="select">Select</option>
-						</select>
-					</div>
-					<div class="form-group">
-						<label>Default Value</label>
-						<input class="form-control" bind:value={field.default_value} />
-					</div>
-					{#if field.field_type === 'select'}
-						<div class="form-group" style="grid-column: span 2">
-							<label>Options (comma-separated)</label>
-							<input class="form-control" value={getOptions(field)} oninput={(e) => setOptions(field, (e.target as HTMLInputElement).value)} placeholder="opt1, opt2, opt3" />
+					{#if dependsOnOptions(i).length > 0}
+						<div class="depends-row">
+							<span class="depends-label">Depends on</span>
+							<select class="form-control depends-select"
+								bind:value={field.depends_on_name}
+								onchange={() => onDependsOnChange(field)}
+							>
+								<option value="">— always show —</option>
+								{#each dependsOnOptions(i) as opt}
+									<option value={opt.name}>{opt.label || opt.name}</option>
+								{/each}
+							</select>
+							{#if field.depends_on_name}
+								{@const parent = getDependsParent(field)}
+								<span class="depends-eq">=</span>
+								{#if parent?.field_type === 'bool'}
+									<select class="form-control depends-val" bind:value={field.depends_on_value}>
+										<option value="true">true</option>
+										<option value="false">false</option>
+									</select>
+								{:else if parent?.field_type === 'select'}
+									<select class="form-control depends-val" bind:value={field.depends_on_value}>
+										<option value="">Select value…</option>
+										{#each (() => { try { return JSON.parse(parent.options || '[]'); } catch { return []; } })() as opt}
+											<option value={opt}>{opt}</option>
+										{/each}
+									</select>
+								{:else}
+									<input class="form-control depends-val" bind:value={field.depends_on_value} placeholder="value" />
+								{/if}
+							{/if}
 						</div>
 					{/if}
-					<div class="form-group field-required">
-						<label><input type="checkbox" bind:checked={field.required} /> Required</label>
-					</div>
 				</div>
 				<button type="button" class="btn btn-sm btn-danger field-remove" onclick={() => removeField(i)}>✕</button>
 			</div>
@@ -400,11 +487,20 @@
 	.chip-req { font-size: 0.68rem; background: rgba(224,53,53,0.1); color: var(--danger); border-radius: 4px; padding: 0 0.25rem; }
 	.check { color: var(--success); font-size: 0.75rem; }
 	.no-suggestions { font-size: 0.8rem; color: var(--text-muted); margin: 0; }
-	.field-row { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.6rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 0.5rem; }
-	.field-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; flex: 1; }
+	.field-row { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.6rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 0.5rem; transition: border-color 0.12s, background 0.12s; }
+	.field-row.drag-over { border-color: var(--primary); background: rgba(8,145,178,0.04); }
+	.drag-handle { cursor: grab; color: var(--text-muted); font-size: 1.1rem; line-height: 1; padding-top: 1.6rem; user-select: none; flex-shrink: 0; }
+	.drag-handle:active { cursor: grabbing; }
+	.field-body { flex: 1; min-width: 0; }
+	.field-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
 	.field-required { display: flex; align-items: center; }
 	.field-required label { display: flex; align-items: center; gap: 0.375rem; font-weight: normal; margin-bottom: 0; }
-	.field-remove { align-self: flex-end; margin-bottom: 0.6rem; }
+	.field-remove { align-self: flex-end; margin-bottom: 0.6rem; flex-shrink: 0; }
+	.depends-row { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.4rem; padding-top: 0.4rem; border-top: 1px dashed var(--border); flex-wrap: wrap; }
+	.depends-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); white-space: nowrap; }
+	.depends-eq { font-size: 0.8rem; color: var(--text-muted); }
+	.depends-select { width: 160px; flex-shrink: 0; }
+	.depends-val { width: 130px; flex-shrink: 0; }
 	.checkbox-label { display: flex; align-items: center; gap: 0.5rem; font-weight: 500; cursor: pointer; }
 	.file-badge { display: inline-flex; align-items: center; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; border-radius: 4px; padding: 0.15rem 0.5rem; font-size: 0.8rem; }
 	.file-label { cursor: pointer; display: inline-flex; align-items: center; }
