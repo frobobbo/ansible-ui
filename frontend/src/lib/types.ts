@@ -102,6 +102,7 @@ export interface Form {
 	webhook_token: string;
 	notify_webhook: string;
 	notify_email: string;
+	status: string;
 	next_run_at?: string | null;
 	fields?: FormField[];
 	created_at: string;

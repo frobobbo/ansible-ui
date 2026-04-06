@@ -13,7 +13,7 @@ type FormStore struct {
 	db *sql.DB
 }
 
-const formSelect = "SELECT id, name, description, playbook_id, playbook_path, server_id, host_id, server_group_id, vault_id, is_quick_action, image_name, schedule_cron, schedule_enabled, webhook_token, notify_webhook, notify_email, created_at, updated_at FROM forms"
+const formSelect = "SELECT id, name, description, playbook_id, playbook_path, server_id, host_id, server_group_id, vault_id, is_quick_action, image_name, schedule_cron, schedule_enabled, webhook_token, notify_webhook, notify_email, status, created_at, updated_at FROM forms"
 
 func scanForm(row interface {
 	Scan(...any) error
@@ -21,7 +21,7 @@ func scanForm(row interface {
 	f := &models.Form{}
 	var isQuickAction, scheduleEnabled int
 	var serverID, hostID, serverGroupID sql.NullString
-	err := row.Scan(&f.ID, &f.Name, &f.Description, &f.PlaybookID, &f.PlaybookPath, &serverID, &hostID, &serverGroupID, &f.VaultID, &isQuickAction, &f.ImageName, &f.ScheduleCron, &scheduleEnabled, &f.WebhookToken, &f.NotifyWebhook, &f.NotifyEmail, &f.CreatedAt, &f.UpdatedAt)
+	err := row.Scan(&f.ID, &f.Name, &f.Description, &f.PlaybookID, &f.PlaybookPath, &serverID, &hostID, &serverGroupID, &f.VaultID, &isQuickAction, &f.ImageName, &f.ScheduleCron, &scheduleEnabled, &f.WebhookToken, &f.NotifyWebhook, &f.NotifyEmail, &f.Status, &f.CreatedAt, &f.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -57,8 +57,27 @@ func (s *FormStore) List() ([]*models.Form, error) {
 	return forms, rows.Err()
 }
 
+// ListPublished returns only published forms — for non-admin users.
+func (s *FormStore) ListPublished() ([]*models.Form, error) {
+	rows, err := s.db.Query(formSelect + " WHERE status = 'published' ORDER BY name")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var forms []*models.Form
+	for rows.Next() {
+		f, err := scanForm(rows)
+		if err != nil {
+			return nil, err
+		}
+		forms = append(forms, f)
+	}
+	return forms, rows.Err()
+}
+
 func (s *FormStore) GetQuickActions() ([]*models.Form, error) {
-	rows, err := s.db.Query(formSelect + " WHERE is_quick_action = 1 ORDER BY name")
+	rows, err := s.db.Query(formSelect + " WHERE is_quick_action = 1 AND status = 'published' ORDER BY name")
 	if err != nil {
 		return nil, err
 	}
@@ -92,11 +111,16 @@ func (s *FormStore) Get(id string) (*models.Form, error) {
 	return f, nil
 }
 
+func (s *FormStore) SetStatus(id, status string) error {
+	_, err := s.db.Exec("UPDATE forms SET status=?, updated_at=? WHERE id=?", status, time.Now(), id)
+	return err
+}
+
 func (s *FormStore) GetByWebhookToken(token string) (*models.Form, error) {
 	if token == "" {
 		return nil, nil
 	}
-	f, err := scanForm(s.db.QueryRow(formSelect+" WHERE webhook_token = ?", token))
+	f, err := scanForm(s.db.QueryRow(formSelect+" WHERE webhook_token = ? AND status = 'published'", token))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

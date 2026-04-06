@@ -121,6 +121,8 @@ func NewRouter(db *store.DB, jwtSvc *auth.JWTService, vaultUploadDir string, for
 			protected.DELETE("/forms/:id/image", auth.RequireEditor, formsH.DeleteImage)
 			protected.POST("/forms/:id/webhook-token", auth.RequireEditor, formsH.RegenerateWebhookToken)
 			protected.DELETE("/forms/:id/webhook-token", auth.RequireEditor, formsH.RevokeWebhookToken)
+			protected.POST("/forms/:id/publish", auth.RequireAdmin, formsH.Publish)
+			protected.POST("/forms/:id/unpublish", auth.RequireAdmin, formsH.Unpublish)
 
 			// Quick actions — accessible to all authenticated users (including viewers)
 			protected.GET("/quick-actions", formsH.GetQuickActions)

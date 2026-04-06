@@ -129,6 +129,8 @@ export const forms = {
 	deleteImage: (id: string) => request<Form>(`/forms/${id}/image`, { method: 'DELETE' }),
 	regenerateWebhookToken: (id: string) => request<Form>(`/forms/${id}/webhook-token`, { method: 'POST' }),
 	revokeWebhookToken: (id: string) => request<Form>(`/forms/${id}/webhook-token`, { method: 'DELETE' }),
+	publish: (id: string) => request<Form>(`/forms/${id}/publish`, { method: 'POST' }),
+	unpublish: (id: string) => request<Form>(`/forms/${id}/unpublish`, { method: 'POST' }),
 };
 
 export const serverGroups = {

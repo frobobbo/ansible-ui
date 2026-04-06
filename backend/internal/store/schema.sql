@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS forms (
     webhook_token    TEXT NOT NULL DEFAULT '',
     notify_webhook   TEXT NOT NULL DEFAULT '',
     notify_email     TEXT NOT NULL DEFAULT '',
+    status           TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','published')),
     created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

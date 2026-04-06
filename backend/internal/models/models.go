@@ -97,6 +97,7 @@ type Form struct {
 	WebhookToken    string      `json:"webhook_token" db:"webhook_token"`
 	NotifyWebhook   string      `json:"notify_webhook" db:"notify_webhook"`
 	NotifyEmail     string      `json:"notify_email" db:"notify_email"`
+	Status          string      `json:"status" db:"status"`
 	Fields          []FormField `json:"fields,omitempty" db:"-"`
 	CreatedAt       time.Time   `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time   `json:"updated_at" db:"updated_at"`

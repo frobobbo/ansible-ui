@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/brettjrea/ansible-frontend/internal/auth"
 	"github.com/brettjrea/ansible-frontend/internal/models"
 	"github.com/brettjrea/ansible-frontend/internal/scheduler"
 	"github.com/brettjrea/ansible-frontend/internal/store"
@@ -40,8 +41,19 @@ func (h *FormsHandler) withNextRun(f *models.Form) formResponse {
 	return formResponse{Form: f, NextRunAt: next}
 }
 
+func isAdmin(c *gin.Context) bool {
+	claims := auth.GetClaims(c)
+	return claims != nil && claims.Role == "admin"
+}
+
 func (h *FormsHandler) List(c *gin.Context) {
-	list, err := h.forms.List()
+	var list []*models.Form
+	var err error
+	if isAdmin(c) {
+		list, err = h.forms.List()
+	} else {
+		list, err = h.forms.ListPublished()
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -78,19 +90,27 @@ func (h *FormsHandler) Get(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "form not found"})
 		return
 	}
+	if f.Status == "draft" && !isAdmin(c) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "form not found"})
+		return
+	}
 	c.JSON(http.StatusOK, h.withNextRun(f))
 }
 
 func (h *FormsHandler) GetFields(c *gin.Context) {
-	fields, err := h.forms.GetFields(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	f, err := h.forms.Get(c.Param("id"))
+	if err != nil || f == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "form not found"})
 		return
 	}
-	if fields == nil {
-		fields = []models.FormField{}
+	if f.Status == "draft" && !isAdmin(c) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "form not found"})
+		return
 	}
-	c.JSON(http.StatusOK, fields)
+	if f.Fields == nil {
+		f.Fields = []models.FormField{}
+	}
+	c.JSON(http.StatusOK, f.Fields)
 }
 
 // GetImage serves the form's image file. Registered outside the auth group so
@@ -319,4 +339,28 @@ func (h *FormsHandler) Delete(c *gin.Context) {
 	uid, uname := auditUser(c)
 	h.audit.Log(uid, uname, "delete", "form", id, "", c.ClientIP())
 	c.Status(http.StatusNoContent)
+}
+
+func (h *FormsHandler) Publish(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.forms.SetStatus(id, "published"); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	f, _ := h.forms.Get(id)
+	uid, uname := auditUser(c)
+	h.audit.Log(uid, uname, "publish", "form", id, "", c.ClientIP())
+	c.JSON(http.StatusOK, h.withNextRun(f))
+}
+
+func (h *FormsHandler) Unpublish(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.forms.SetStatus(id, "draft"); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	f, _ := h.forms.Get(id)
+	uid, uname := auditUser(c)
+	h.audit.Log(uid, uname, "unpublish", "form", id, "", c.ClientIP())
+	c.JSON(http.StatusOK, h.withNextRun(f))
 }

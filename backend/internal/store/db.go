@@ -120,6 +120,7 @@ func New(dsn string) (*DB, error) {
 	}
 	// Add playbook_path to forms (the specific .yml file within the source repo).
 	db.Exec("ALTER TABLE forms ADD COLUMN playbook_path TEXT NOT NULL DEFAULT ''")
+	db.Exec("ALTER TABLE forms ADD COLUMN status TEXT NOT NULL DEFAULT 'draft'")
 	db.Exec(`CREATE TABLE IF NOT EXISTS hosts (
 		id          TEXT PRIMARY KEY,
 		name        TEXT NOT NULL,
