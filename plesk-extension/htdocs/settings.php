@@ -1,6 +1,7 @@
 <?php
 pm_Context::init('automation-hub');
-require_once __DIR__ . '/../plib/library/AutomationHub/Client.php';
+$indexUrl = pm_Context::getBaseUrl() . 'index.php/index/index';
+require_once rtrim(pm_Context::getPlibDir(), '/\\') . '/library/AutomationHub/Client.php';
 
 // Handle test connection (AJAX POST with ?action=test)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_GET['action'] ?? '') === 'test') {
@@ -21,13 +22,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_GET['action'] ?? '') === 'test')
         'hub_username' => pm_Settings::get('hub_username', ''),
         'hub_password' => pm_Settings::get('hub_password', ''),
     ];
+    $c = new AutomationHub_Client();
     pm_Settings::set('hub_url',      $testUrl);
     pm_Settings::set('hub_username', $username);
     pm_Settings::set('hub_password', $password);
-    pm_Settings::set('hub_token_cache',  '');
-    pm_Settings::set('hub_token_expiry', '0');
+    $c->clearTokenCache();
     try {
-        $c = new AutomationHub_Client();
         $c->call('GET', '/api/forms');
         echo json_encode(['ok' => true, 'message' => 'Connection successful.']);
     } catch (RuntimeException $e) {
@@ -36,8 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_GET['action'] ?? '') === 'test')
         pm_Settings::set('hub_url',      $orig['hub_url']);
         pm_Settings::set('hub_username', $orig['hub_username']);
         pm_Settings::set('hub_password', $orig['hub_password']);
-        pm_Settings::set('hub_token_cache',  '');
-        pm_Settings::set('hub_token_expiry', '0');
+        $c->clearTokenCache();
     }
     exit;
 }
@@ -50,8 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     pm_Settings::set('hub_url',      $url);
     pm_Settings::set('hub_username', $username);
     if ($password !== '') pm_Settings::set('hub_password', $password);
-    pm_Settings::set('hub_token_cache',  '');
-    pm_Settings::set('hub_token_expiry', '0');
+    (new AutomationHub_Client())->clearTokenCache();
     header('Location: settings.php?saved=1');
     exit;
 }
@@ -98,7 +96,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <body>
 <div class="wrap">
     <div class="topbar">
-        <a href="index.php" class="back">&#8592; Back</a>
+        <a href="<?= htmlspecialchars($indexUrl) ?>" class="back" target="_top">&#8592; Back</a>
         <h1>Automation Hub — Settings</h1>
     </div>
 

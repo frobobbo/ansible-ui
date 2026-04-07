@@ -56,6 +56,11 @@ class AutomationHub_Client
         pm_Settings::set('hub_token_expiry', '0');
     }
 
+    public function getAuthToken(): string
+    {
+        return $this->getToken();
+    }
+
     // ── HTTP helpers ─────────────────────────────────────────────────────────
 
     /**

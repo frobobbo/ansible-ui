@@ -8,6 +8,6 @@ VERSION=$(grep -oP '(?<=<version>)[^<]+' meta.xml)
 OUT="${NAME}-${VERSION}.zip"
 
 rm -f "$OUT"
-zip -r "$OUT" meta.xml plib/ htdocs/ --exclude "*.DS_Store" --exclude "__pycache__"
+zip -r "$OUT" meta.xml plib/ htdocs/ _meta/ --exclude "*.DS_Store" --exclude "__pycache__"
 echo "Created: $OUT"
 echo "Install via: Plesk → Extensions → Upload Extension"

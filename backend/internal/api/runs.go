@@ -97,6 +97,15 @@ func (h *RunsHandler) Get(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "run not found"})
 		return
 	}
+	// Merge in-memory lines so polling clients see live output before the run finishes.
+	if val, ok := h.liveRuns.Load(r.ID); ok {
+		lr := val.(*liveRun)
+		lr.mu.Lock()
+		if len(lr.lines) > 0 {
+			r.Output = strings.Join(lr.lines, "\n")
+		}
+		lr.mu.Unlock()
+	}
 	c.JSON(http.StatusOK, r)
 }
 

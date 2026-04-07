@@ -1,0 +1,334 @@
+<style>
+.ah-wrap{max-width:1100px}
+.ah-topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:16px}
+.ah-brand{display:flex;align-items:center;min-height:64px;flex:1}
+.ah-logo{height:auto;max-height:196px;max-width:100%;object-fit:contain;display:block}
+.ah-brand-text{font-size:24px;line-height:1.2;font-weight:600;margin:0;color:#0f172a}
+.ah-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-size:13px;cursor:pointer;text-decoration:none;transition:all .15s}
+.ah-btn:hover{background:#f1f5f9;border-color:#94a3b8}
+.ah-btn-primary{background:#0891b2;border-color:#0891b2;color:#fff}
+.ah-btn-primary:hover{background:#0e7490;border-color:#0e7490}
+.ah-btn-primary:disabled{background:#a5f3fc;border-color:#a5f3fc;cursor:not-allowed}
+.ah-alert{padding:14px 20px;border-radius:8px;margin-bottom:16px;font-size:14px}
+.ah-alert-warn{background:#fef9c3;border:1px solid #fde047;color:#713f12}
+.ah-alert a{color:inherit;font-weight:600}
+.ah-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.ah-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:12px;transition:box-shadow .15s;min-height:172px}
+.ah-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08);border-color:#94a3b8}
+.ah-card-media{height:54px;display:flex;align-items:center}
+.ah-card-media img{max-height:54px;max-width:100%;object-fit:contain;display:block}
+.ah-card-name{font-weight:600;font-size:16px;color:#0f172a}
+.ah-card-desc{font-size:13px;color:#64748b;flex:1}
+.ah-card-foot{display:flex;align-items:center;justify-content:space-between}
+.ah-badge{font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;background:#e0f2fe;color:#0369a1}
+.ah-runner{background:#fff;border:1px solid #0891b2;border-radius:10px;margin-top:16px;overflow:hidden}
+.ah-runner-head{background:#0891b2;color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+.ah-runner-head h2{font-size:16px;margin:0}
+.ah-close-btn{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;opacity:.8;line-height:1;padding:0}
+.ah-close-btn:hover{opacity:1}
+.ah-runner-body{padding:20px}
+.ah-fields{display:grid;gap:14px;margin-bottom:20px}
+.ah-field label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#475569;margin-bottom:6px}
+.ah-field input[type=text],.ah-field input[type=number],.ah-field select{width:100%;padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;background:#f8fafc}
+.ah-field input:focus,.ah-field select:focus{outline:2px solid #0891b2;border-color:transparent;background:#fff}
+.ah-field-bool{display:flex;align-items:center;gap:8px}
+.ah-field-bool input{width:18px;height:18px;accent-color:#0891b2}
+.ah-run-bar{display:flex;gap:12px;align-items:center}
+.ah-status{font-size:12px;font-weight:600;padding:5px 11px;border-radius:6px}
+.ah-s-pending,.ah-s-running{background:#e0f2fe;color:#0369a1}
+.ah-s-success{background:#dcfce7;color:#166534}
+.ah-s-failed{background:#fee2e2;color:#991b1b}
+.ah-output{margin-top:20px;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0}
+.ah-output-bar{background:#1e293b;color:#94a3b8;font-size:12px;padding:6px 14px;display:flex;justify-content:space-between;font-family:monospace}
+.ah-output pre{margin:0;padding:14px;background:#0f172a;color:#e2e8f0;font-family:'Courier New',monospace;font-size:12px;line-height:1.6;max-height:420px;overflow-y:auto;white-space:pre-wrap;word-break:break-all}
+.ah-empty{text-align:center;padding:48px 16px;color:#94a3b8;font-size:15px}
+.ah-spinner{display:inline-block;width:14px;height:14px;border:2px solid #bae6fd;border-top-color:#0891b2;border-radius:50%;animation:ah-spin .7s linear infinite;vertical-align:middle}
+@keyframes ah-spin{to{transform:rotate(360deg)}}
+</style>
+
+<div class="ah-wrap">
+    <div class="ah-topbar">
+        <div class="ah-brand">
+            <?php if ($this->hubBaseUrl): ?>
+                <img src="<?php echo htmlspecialchars($this->hubBaseUrl . '/logo.png', ENT_QUOTES, 'UTF-8'); ?>" alt="Automation Hub" class="ah-logo">
+            <?php else: ?>
+                <div class="ah-brand-text">Automation Hub</div>
+            <?php endif; ?>
+        </div>
+        <a href="<?php echo htmlspecialchars($this->settingsUrl, ENT_QUOTES, 'UTF-8'); ?>" class="ah-btn">&#9881; Settings</a>
+    </div>
+
+    <?php if (!$this->configured): ?>
+        <div class="ah-alert ah-alert-warn">
+            Not configured. <a href="<?php echo htmlspecialchars($this->settingsUrl, ENT_QUOTES, 'UTF-8'); ?>">Open Settings</a>
+            to enter your Automation Hub URL and credentials.
+        </div>
+    <?php else: ?>
+        <div id="forms-area">
+            <div class="ah-empty"><span class="ah-spinner"></span>&nbsp; Loading forms&hellip;</div>
+        </div>
+
+        <div id="runner" class="ah-runner" style="display:none">
+            <div class="ah-runner-head">
+                <h2 id="runner-title">Run Form</h2>
+                <button class="ah-close-btn" onclick="AH.close()" title="Close">&#x2715;</button>
+            </div>
+            <div class="ah-runner-body">
+                <div id="fields" class="ah-fields"></div>
+                <div class="ah-run-bar">
+                    <button id="run-btn" class="ah-btn ah-btn-primary" onclick="AH.run()">&#9654; Run</button>
+                    <span id="run-status"></span>
+                </div>
+                <div id="output" class="ah-output" style="display:none">
+                    <div class="ah-output-bar">
+                        <span>Output</span>
+                        <span id="output-status"></span>
+                    </div>
+                    <pre id="output-text"></pre>
+                </div>
+            </div>
+        </div>
+    <?php endif ?>
+</div>
+
+<script>
+const AH = (() => {
+    const PROXY = <?php echo json_encode($this->proxyUrl); ?>;
+    const HUB_BASE = <?php echo json_encode($this->hubBaseUrl); ?>;
+    let form = null, fields = [], pollTimer = null, activeRunId = null;
+
+    async function api(method, endpoint, body = null) {
+        const r = await fetch(PROXY, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({method, endpoint, body}),
+        });
+        const d = await r.json();
+        if (d.error) throw new Error(d.error);
+        return d;
+    }
+
+    async function loadForms() {
+        try {
+            const forms = await api('GET', '/api/forms');
+            renderForms(Array.isArray(forms) ? forms : []);
+        } catch (e) {
+            document.getElementById('forms-area').innerHTML =
+                `<div class="ah-alert ah-alert-warn">Failed to load forms: ${esc(e.message)}</div>`;
+        }
+    }
+
+    function renderForms(list) {
+        const el = document.getElementById('forms-area');
+        if (!list.length) {
+            el.innerHTML = '<div class="ah-empty">No forms found. Create forms in Automation Hub first.</div>';
+            return;
+        }
+        el.innerHTML = '<div class="ah-grid">' + list.map(f => `
+            <div class="ah-card">
+                ${f.image_name ? `<div class="ah-card-media"><img src="${escAttr(formImageUrl(f))}" alt="${escAttr(f.name)}"></div>` : ''}
+                <div class="ah-card-name">${esc(f.name)}</div>
+                <div class="ah-card-desc">${esc(f.description || '')}</div>
+                <div class="ah-card-foot">
+                    ${f.is_quick_action ? '<span class="ah-badge">Quick Action</span>' : '<span></span>'}
+                    <button class="ah-btn ah-btn-primary" onclick="AH.open(${esc(JSON.stringify(f))})">&#9654; Run</button>
+                </div>
+            </div>
+        `).join('') + '</div>';
+    }
+
+    async function open(f) {
+        stopPoll();
+        form = f;
+        document.getElementById('runner-title').textContent = f.name;
+        document.getElementById('fields').innerHTML = '<div class="ah-empty"><span class="ah-spinner"></span>&nbsp; Loading&hellip;</div>';
+        document.getElementById('output').style.display = 'none';
+        document.getElementById('run-status').textContent = '';
+        document.getElementById('run-status').className = '';
+        document.getElementById('run-btn').disabled = false;
+        document.getElementById('runner').style.display = '';
+        document.getElementById('runner').scrollIntoView({behavior:'smooth', block:'start'});
+
+        try {
+            const f2 = await api('GET', `/api/forms/${f.id}/fields`);
+            fields = Array.isArray(f2) ? f2 : [];
+            renderFields(fields);
+        } catch (e) {
+            document.getElementById('fields').innerHTML =
+                `<div class="ah-alert ah-alert-warn">Failed to load fields: ${esc(e.message)}</div>`;
+        }
+    }
+
+    // ── Dependency evaluation ─────────────────────────────────────────────────
+
+    function getFieldValue(f) {
+        const el = document.getElementById('f_' + f.id);
+        if (!el) return '';
+        return f.field_type === 'bool' ? (el.checked ? 'true' : 'false') : el.value;
+    }
+
+    function isFieldVisible(f) {
+        if (!f.depends_on_name) return true;
+        const parentField = fields.find(x => x.name === f.depends_on_name);
+        if (!parentField) return true;
+        const parent = getFieldValue(parentField);
+        const val = f.depends_on_value || '';
+        switch (f.depends_on_operator || 'eq') {
+            case 'eq':           return parent === val;
+            case 'neq':         return parent !== val;
+            case 'in':           return val.split(',').map(s => s.trim()).includes(parent);
+            case 'not_in':       return !val.split(',').map(s => s.trim()).includes(parent);
+            case 'contains':     return parent.includes(val);
+            case 'not_contains': return !parent.includes(val);
+            case 'empty':        return parent === '' || parent === 'false';
+            case 'not_empty':    return parent !== '' && parent !== 'false';
+            default:             return parent === val;
+        }
+    }
+
+    function applyVisibility() {
+        for (const f of fields) {
+            const wrapper = document.querySelector(`[data-fid="${CSS.escape(f.id)}"]`);
+            if (wrapper) wrapper.style.display = isFieldVisible(f) ? '' : 'none';
+        }
+    }
+
+    function renderFields(list) {
+        const el = document.getElementById('fields');
+        if (!list.length) {
+            el.innerHTML = '<p style="color:#64748b;font-size:14px">No input fields. Click Run to execute immediately.</p>';
+            return;
+        }
+        el.innerHTML = list.map(f => {
+            const req = f.required ? ' <span style="color:#e11d48">*</span>' : '';
+            if (f.field_type === 'bool') {
+                return `<div class="ah-field" data-fid="${esc(f.id)}">
+                    <div class="ah-field-bool">
+                        <input type="checkbox" id="f_${f.id}" ${f.default_value === 'true' ? 'checked' : ''}>
+                        <label for="f_${f.id}" style="text-transform:none;font-size:14px">${esc(f.label)}${req}</label>
+                    </div>
+                </div>`;
+            }
+            if (f.field_type === 'select') {
+                let opts = [];
+                try { opts = JSON.parse(f.options); } catch (_) {}
+                return `<div class="ah-field" data-fid="${esc(f.id)}"><label>${esc(f.label)}${req}</label>
+                    <select id="f_${f.id}">${opts.map(o =>
+                        `<option value="${esc(o)}"${o === f.default_value ? ' selected' : ''}>${esc(o)}</option>`
+                    ).join('')}</select></div>`;
+            }
+            return `<div class="ah-field" data-fid="${esc(f.id)}"><label>${esc(f.label)}${req}</label>
+                <input type="${f.field_type === 'number' ? 'number' : 'text'}" id="f_${f.id}"
+                    value="${esc(f.default_value)}"${f.required ? ' required' : ''}></div>`;
+        }).join('');
+
+        // Attach change listeners so dependent fields react immediately
+        for (const f of list) {
+            const input = document.getElementById('f_' + f.id);
+            if (input) input.addEventListener('change', applyVisibility);
+            if (input) input.addEventListener('input', applyVisibility);
+        }
+        applyVisibility();
+    }
+
+    function close() {
+        stopPoll();
+        document.getElementById('runner').style.display = 'none';
+        form = null;
+        fields = [];
+    }
+
+    async function run() {
+        if (!form) return;
+        stopPoll();
+
+        const vars = {};
+        for (const f of fields) {
+            if (!isFieldVisible(f)) continue;
+            const el = document.getElementById('f_' + f.id);
+            if (!el) continue;
+            const v = f.field_type === 'bool' ? (el.checked ? 'true' : 'false') : el.value.trim();
+            if (f.required && v === '') {
+                el.focus();
+                return;
+            }
+            vars[f.name] = v;
+        }
+
+        document.getElementById('run-btn').disabled = true;
+        setStatus('running', 'Starting...');
+        const outEl = document.getElementById('output');
+        const outText = document.getElementById('output-text');
+        outEl.style.display = '';
+        outText.textContent = '';
+
+        try {
+            const res = await api('POST', '/api/runs', {form_id: form.id, variables: vars});
+            if (!res.run_id) throw new Error('This form returned no single run ID.');
+            activeRunId = res.run_id;
+            startPoll(res.run_id);
+        } catch (e) {
+            setStatus('failed', 'Error: ' + e.message);
+            document.getElementById('run-btn').disabled = false;
+        }
+    }
+
+    function startPoll(runId) {
+        const outText = document.getElementById('output-text');
+        setStatus('running', 'Running');
+        document.getElementById('output-status').textContent = 'running';
+
+        pollTimer = setInterval(async () => {
+            try {
+                const r = await api('GET', `/api/runs/${runId}`);
+                outText.textContent = stripAnsi(r.output || '');
+                outText.scrollTop = outText.scrollHeight;
+
+                if (r.status === 'success' || r.status === 'failed') {
+                    stopPoll();
+                    document.getElementById('output-status').textContent = r.status;
+                    setStatus(r.status, r.status.charAt(0).toUpperCase() + r.status.slice(1));
+                    document.getElementById('run-btn').disabled = false;
+                    activeRunId = null;
+                }
+            } catch (_) {}
+        }, 2000);
+    }
+
+    function stopPoll(resetRun = true) {
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+        if (resetRun) {
+            activeRunId = null;
+        }
+    }
+
+    function setStatus(state, text) {
+        const el = document.getElementById('run-status');
+        el.className = 'ah-status ah-s-' + state;
+        el.textContent = text;
+    }
+
+    function formImageUrl(f) {
+        return `${HUB_BASE}/api/forms/${encodeURIComponent(f.id)}/image`;
+    }
+
+    function esc(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function escAttr(s) {
+        return esc(s).replace(/'/g, '&#39;');
+    }
+
+    function stripAnsi(s) {
+        return s.replace(/\x1b\[[0-9;]*[mGKHF]/g, '');
+    }
+
+    <?php if ($this->configured): ?>loadForms();<?php endif; ?>
+
+    return { open, close, run };
+})();
+</script>
